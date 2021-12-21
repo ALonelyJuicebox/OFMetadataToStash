@@ -19,8 +19,8 @@ REQUIREMENTS
 
 # USER DEFINED VARIABLES #
 ##########################
-$PathToStashDatabase = "" #This file is probably in <filepath>/Stash/db/stash-go.sqlite
-$pathToOF_DB_Metadata = "" #This file should be located in <filepath>/<performername>/metadata/user_data.db
+$PathToStashDatabase = "" #Please define the full file path. This file is probably in <filepath>/Stash/db/stash-go.sqlite
+$pathToOF_DB_Metadata = "" #Please define the full file path. This file should be located in <filepath>/<performername>/metadata/user_data.db
 ##########################
 
 Clear-Host
