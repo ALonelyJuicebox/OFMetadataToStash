@@ -20,6 +20,6 @@ You must already have this metadata file in your posession.
     - The OnlyFans metadata database (`user_data.db`) for this particular performer   
 
 # How to Run
-- Open Powershell, and run the command `.\ofmetadatatostash.ps1`.
-    
-    Cheers!
+- Download OFMetadataToStash.ps1 from this repository.
+- Ensure you've followed everything in the requirements section above
+- Open Powershell, and run the command `.\ofmetadatatostash.ps1`
