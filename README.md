@@ -18,5 +18,8 @@ You must already have this metadata file in your posession.
   - Be sure to edit the file paths for the following under `USER DEFINED VARIABLES` at the very top of this PS1 file.
     - Your Stash database (`stash-go.sqlite`)
     - The OnlyFans metadata database (`user_data.db`) for this particular performer   
+
+# How to run
+- Open Powershell, and run the command `.\ofmetadatatostash.ps1`.
     
     Cheers!
