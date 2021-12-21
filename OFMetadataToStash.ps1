@@ -3,6 +3,8 @@
 
 AUTHOR
     JuiceBox
+URL 
+    https://github.com/ALonelyJuicebox/OFMetadataToStash
 
 DESCRIPTION
     Using the metadata database from DC's script, imports metadata such as the URL, post associated text, and creation date into your stash DB
@@ -22,7 +24,7 @@ $pathToOF_DB_Metadata = "" #This file should be located in <filepath>/<performer
 ##########################
 
 Clear-Host
-write-host "- OnlyFans Metadata to Stash Database PoSH Script`nAuthor: JuiceBox"
+write-host "- OnlyFans Metadata to Stash Database PoSH Script`nAuthor: JuiceBox (https://github.com/ALonelyJuicebox/OFMetadataToStash)"
 if (!(test-path $PathToStashDatabase)){
     read-host "You have not defined a filepath for Stash's database file. Please edit the first two lines of this .ps1 file.`nPress [Enter] to exit."
     exit
@@ -32,8 +34,8 @@ elseif (!(test-path $pathToOF_DB_Metadata)){
     exit
 }
 else {
-    read-host "- Settings Check`n - Path to Stash's db:`n$PathToStashDatabase`n - Path to OnlyFans Metadata DB:`n$PathToOF_DB_Metadata`nPress [Enter] to continue"
-    read-host "Please make sure Stash is not running. You may also wish to create a backup of your SQL file. Press [Enter] to begin the import"
+    write-host "- Settings Check`n - Path to Stash's db:`n$PathToStashDatabase`n - Path to OnlyFans Metadata DB:`n$PathToOF_DB_Metadata`nPress [Enter] to continue"
+    read-host "Please make sure Stash is not running. You may also wish to create a backup of your SQL file.`nPress [Enter] to begin the import"
 
     #DEBUG STUFF
     Remove-Item $PathToStashDatabase -force 
