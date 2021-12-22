@@ -76,7 +76,7 @@ else {
     foreach ($video in $OFDBQueryResult){
 
         #Generating the URL for this post
-        $linktoperformerpage = "www.onlyfans.com/"+$video.posts_postID+"/"+$performername
+        $linktoperformerpage = "https://www.onlyfans.com/"+$video.posts_postID+"/"+$performername
         
         #Reformatting the date to something stash appropriate
         $creationdatefromOF = $video.created_at
