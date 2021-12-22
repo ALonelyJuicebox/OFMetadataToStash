@@ -37,10 +37,6 @@ else {
     write-host "- Settings Check`n - Path to Stash's db:`n$PathToStashDatabase`n - Path to OnlyFans Metadata DB:`n$PathToOF_DB_Metadata`nPress [Enter] to continue"
     read-host "Please make sure Stash is not running. You may also wish to create a backup of your SQL file.`nPress [Enter] to begin the import"
 
-    #DEBUG STUFF
-    Remove-Item $PathToStashDatabase -force 
-    Copy-Item "C:\Users\Chris\Box\Active Scripts\OFMetadataToStash\stash\stash-go - DEFAULT STATE.sqlite" -Destination $PathToStashDatabase
-
     #Let's capture the name of this performer based off of the file directory
     $performername = Split-Path -parent $pathToOF_DB_Metadata
     $performername = Split-Path -parent $performername 
