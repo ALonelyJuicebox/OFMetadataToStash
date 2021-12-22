@@ -9,6 +9,7 @@ To be clear, this script _does not download any metadata from any website_.
 You must already have this metadata file in your posession.
 
 # Requirements
+  - Tested with Stash v11, DC Script v7.6.1
   - Metadata database must be from DC's script
   - Since Powershell cannot natively query SQLite databases, the Powershell module "PSSQLite" must first be installed https://github.com/RamblingCookieMonster/PSSQLite
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
