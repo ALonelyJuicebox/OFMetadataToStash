@@ -39,7 +39,6 @@ else {
     #Since we're editing the stash database directly, playing it safe and asking the user to back up their database
     $backupConfirmation = Read-Host "Would you like to make a backup of your Stash Database? [Y/N] Default is 'Y'"
     if ($backupConfirmation.substring(0,1) -ne 'n') {
-        $PathToStashDatabase = "C:\Users\Chris\Box\Active Scripts\OFMetadataToStash\stash\stash-go.sqlite" 
         $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
         $PathToStashDatabaseBackup = $PathToStashDatabaseBackup+"\stash-go_OFToStash_BACKUP.sqlite"
         read-host "OK, A backup will be created at $PathToStashDatabaseBackup`nPress [Enter] to generate backup"
