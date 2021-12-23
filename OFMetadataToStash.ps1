@@ -16,8 +16,15 @@ REQUIREMENTS
        in that directory then run 'install-module pssqlite' followed by the command 'import-module pssqlite'
     - Change the paths to both your stash db and to the OnlyFans metadata db on the first two lines of this script
  #>
+ Clear-Host
 
-Clear-Host
+
+# USER DEFINED VARIABLES #
+##########################
+$PathToStashDatabase = "" #Please define the full file path. This file is probably in <filepath>/Stash/db/stash-go.sqlite
+$pathToOF_DB_Metadata = "" #Please define the full file path. This file should be located in <filepath>/<performername>/metadata/user_data.db
+##########################
+
 
 write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
 if (!(test-path $PathToStashDatabase)){
@@ -31,7 +38,7 @@ elseif (!(test-path $pathToOF_DB_Metadata)){
 else {
     write-host "- Path to Stash's db: $PathToStashDatabase`n- Path to OnlyFans Metadata DB: $PathToOF_DB_Metadata`n"
     
-    #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
+    #Since we're editing the stash database directly, playing it safe and asking the user to back up their database
     $backupConfirmation = Read-Host "Would you like to make a backup of your Stash Database? [Y/N] Default is 'Y'"
     if (($backupConfirmation -ne 'n') -or ($backupConfirmation -ne 'n')) {
         $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
