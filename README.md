@@ -18,7 +18,7 @@ You must already have this metadata file in your posession.
     * All set!
   - Be sure to edit the file paths for the following under `USER DEFINED VARIABLES` at the very top of this PS1 file.
     - Your Stash database (`stash-go.sqlite`)
-    - The OnlyFans metadata database (`user_data.db`) for this particular performer   
+    - The top level directory path OR the direct path to your OnlyFans metadata database file(s) (`user_data.db`) 
 
 # How to Run
 - Download OFMetadataToStash.ps1 from this repository.
