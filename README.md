@@ -4,6 +4,8 @@ Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans script, th
 - Performer URL
 - Performer authored text associated with a given video
 - Creation date of the post
+- Scene/Performer association
+- Scene/Studio association
 
 To be clear, this script _does not download any metadata from any website_. 
 You must already have this metadata file in your posession.
