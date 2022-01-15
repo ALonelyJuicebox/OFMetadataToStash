@@ -13,6 +13,8 @@ You must already have this metadata file in your posession.
 
 Don't have an Onlyfans metadata database file? **No problem!** This script can associate performer names/studio based on file paths as well!
 
+**Bonus Feature**: The OFMetadataDatabase_Sanitizer script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others far less potentially sensitive
+
 # Requirements
   - Tested on Windows 10 with Stash v11 using DC Script v7.6.1
   - Metadata database must be from DC's script
@@ -20,10 +22,8 @@ Don't have an Onlyfans metadata database file? **No problem!** This script can a
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
     * Run the command `install-module pssqlite` followed by the command `import-module pssqlite`
-    * All set!
-  - Don't forget! Be sure to edit the first two file paths in the `OFMetadataToStash_Config` configuration file to define where your Onlyfans content is, as well as the location of your Stash database file.
 
 # How to Run
-- Download OFMetadataToStash.ps1 from this repository.
+- Download the latest release, making sure to edit `OFMetadataToStash_Config` to define where your OnlyFans content is, as well as the location of your Stash Database file
 - Ensure you've followed everything in the requirements section above
 - Open Powershell, and run the command `.\ofmetadatatostash.ps1`
