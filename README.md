@@ -21,7 +21,7 @@ Don't have an Onlyfans metadata database file? **No problem!** This script can a
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
     * Run the command `install-module pssqlite` followed by the command `import-module pssqlite`
     * All set!
-  - Don't forget! Be sure to edit the first two file paths under OFMetadataToStash_Config to define where your Onlyfans content is, as well as the location of your Stash database file.
+  - Don't forget! Be sure to edit the first two file paths in the `OFMetadataToStash_Config` configuration file to define where your Onlyfans content is, as well as the location of your Stash database file.
 
 # How to Run
 - Download OFMetadataToStash.ps1 from this repository.
