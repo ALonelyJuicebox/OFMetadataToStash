@@ -11,9 +11,10 @@ Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download S
 To be clear, this script _does not download any metadata from any website_. 
 You must already have this metadata file in your posession.
 
-Don't have an Onlyfans metadata database file? _No problem_! This script can associate performer names/studio based on file paths as well!
+Don't have an Onlyfans metadata database file? _No problem!_ This script can associate performer names/studio based on file paths as well!
 
 **Bonus Feature**: 
+
 The OFMetadataDatabase_Sanitizer script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others far less potentially sensitive!
 
 # Requirements
