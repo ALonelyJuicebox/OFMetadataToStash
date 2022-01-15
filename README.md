@@ -13,7 +13,8 @@ You must already have this metadata file in your posession.
 
 Don't have an Onlyfans metadata database file? **No problem!** This script can associate performer names/studio based on file paths as well!
 
-**Bonus Feature**: The OFMetadataDatabase_Sanitizer script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others far less potentially sensitive
+**Bonus Feature**: 
+The OFMetadataDatabase_Sanitizer script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others far less potentially sensitive!
 
 # Requirements
   - Tested on Windows 10 with Stash v11 using DC Script v7.6.1
