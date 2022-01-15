@@ -1,4 +1,5 @@
 **0.3 Release (1/5/2022)**
+-  Feature - Includes a OnlyFans Metadata Database Sanitizer utility to make sharing your database infinitely less risky!
 -  Feature - Image support!
 -  Feature - Support for detecting and updating performer name/studio for files even if a metadata database isn't available!
 -  Feature - Now updates the OnlyFans DB if Stash has a more up to date location for a given file, making future queries faster
