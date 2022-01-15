@@ -1,0 +1,15 @@
+#############################################
+# OnlyFans MetaData To Stash Config File    #
+#############################################
+
+#Direct path to the Stash SQLite database.
+C:\REPLACE_ME\Stash\db\stash-go.sqlite
+
+#You may define a top level folder that contains all your OnlyFans metadata databases from various performers or you may just define the direct path to user_data.db (<performername>/metadata/user_data.db)
+C:\REPLACE_ME\ONLYFANS\
+
+#Where we should store a log of files that we can't (precisely) find in your Stash database for adding metadata to
+.\PotentialDuplicates.log
+
+#Where we should store a log of files that are in your OnlyFans database but cannot be found in Stash either by path or by searching filesize/performer
+.\MissingFiles.log
