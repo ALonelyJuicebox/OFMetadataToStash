@@ -1,5 +1,5 @@
 # OnlyFans Metadata to Stash Database PoSH Script
-Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans script, this script imports metadata into your Stash DB such as...
+Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as...
 - Title information based on the Performer name
 - Performer URL
 - URL of the post itself
