@@ -2,13 +2,16 @@
 Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans script, this script imports metadata into your Stash DB such as...
 - Title information based on the Performer name
 - Performer URL
+- URL of the post itself
 - Performer authored text associated with a given video
 - Creation date of the post
-- Scene/Performer association
-- Scene/Studio association
+- (Image/Scene) x Performer association
+- (Image/Scene) x Studio association
 
 To be clear, this script _does not download any metadata from any website_. 
 You must already have this metadata file in your posession.
+
+Don't have an Onlyfans metadata database file? **No problem!** This script can associate performer names/studio based on file paths as well!
 
 # Requirements
   - Tested on Windows 10 with Stash v11 using DC Script v7.6.1
@@ -18,9 +21,7 @@ You must already have this metadata file in your posession.
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
     * Run the command `install-module pssqlite` followed by the command `import-module pssqlite`
     * All set!
-  - Be sure to edit the file paths for the following under `USER DEFINED VARIABLES` at the very top of this PS1 file.
-    - Your Stash database (`stash-go.sqlite`)
-    - The top level directory path OR the direct path to your OnlyFans metadata database file(s) (`user_data.db`) 
+  - Don't forget! Be sure to edit the first two file paths under OFMetadataToStash_Config to define where your Onlyfans content is, as well as the location of your Stash database file.
 
 # How to Run
 - Download OFMetadataToStash.ps1 from this repository.
