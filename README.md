@@ -1,4 +1,4 @@
-# OnlyFans Metadata to Stash Database PoSH Script
+# OnlyFans Metadata to Stash Database Powershell Script
 Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as...
 - Title information based on the Performer name
 - Performer URL
