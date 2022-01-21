@@ -26,6 +26,6 @@ The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily s
     * Run the command `install-module pssqlite` followed by the command `import-module pssqlite`
 
 # How to Run
-- Download the latest release, making sure to edit `OFMetadataToStash_Config` to define where your OnlyFans content is, as well as the location of your Stash Database file
 - Ensure you've installed PSSQLite as described in the section above
+- Download the latest release, making sure to edit `OFMetadataToStash_Config` to define where your OnlyFans content is, as well as the location of your Stash Database file
 - Open Powershell, and run the command `.\ofmetadatatostash.ps1`
