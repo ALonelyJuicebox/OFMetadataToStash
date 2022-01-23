@@ -18,7 +18,7 @@ Don't have an Onlyfans metadata database file? _No problem!_ This script can ass
 The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others **far** less potentially sensitive! 🙂
 
 # Requirements
-  - Tested on Windows 10 with Stash v11 using DC Script v7.6.1
+  - Fully tested on both Windows 10 and Debian Linux (Running on ChromeOS) with Stash v11 using DC Script v7.6.1
   - Metadata database must be from DC's script
   - Since Powershell cannot natively query SQLite databases, the Powershell module "PSSQLite" must first be installed https://github.com/RamblingCookieMonster/PSSQLite
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
