@@ -13,7 +13,7 @@ You must already have this metadata file in your posession.
 
 Don't have an Onlyfans metadata database file? _No problem!_ This script can associate performer names/studio based on file paths as well!
 
-**Bonus Feature**: 
+**Bonus Utility**: 
 
 The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others **far** less potentially sensitive! 🙂
 
@@ -22,8 +22,7 @@ The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily s
     -  Windows 10 with Windows Powershell (Built-in)
     -  Linux using Powershell Core (both ARM and x86 releases tested) with Stash v11
     -  macOS should work after installing Powershell Core, but is untested
-  - Again, the metadata database must be from DC's script
-  - Since Powershell cannot natively query SQLite databases, the Powershell module "PSSQLite" must first be installed https://github.com/RamblingCookieMonster/PSSQLite
+  - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
     * Run the command `install-module pssqlite` followed by the command `import-module pssqlite`
