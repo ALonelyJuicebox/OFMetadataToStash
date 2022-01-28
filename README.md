@@ -20,8 +20,8 @@ The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily s
 # Requirements
   - Fully tested on Stash v0.11 using DC OnlyFans Script v7.6.1 on the following operating systems
     -  **Windows 10** with Windows Powershell (Built-in)
-    -  **Linux** using Powershell Core (both ARM and x86 releases tested) with Stash v11
-    -  **macOS** should work after installing Powershell Core, but is technically untested
+    -  **Linux** using Powershell Core (both ARM and x86 releases tested)
+    -  **macOS** using Powershell Core
   - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
