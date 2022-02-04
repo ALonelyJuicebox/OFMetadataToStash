@@ -15,7 +15,8 @@ Don't have an Onlyfans metadata database file? _No problem!_ This script can ass
 
 **Bonus Utility**: 
 
-The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily scrub all tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others **far** less potentially sensitive! 🙂
+The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily scrub all OnlyFans Metadata DB tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others **far** less potentially sensitive! 🙂
+Just install the SQLite module, run the OFMetadataDatabase_Sanitizer.ps1 file and it will prompt you for the path to your metadata database. Don't worry, the original file will NOT be modified.
 
 # Requirements
   - Fully tested on Stash v0.11 using DC OnlyFans Script v7.6.1 on the following operating systems
