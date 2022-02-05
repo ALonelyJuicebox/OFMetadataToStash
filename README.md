@@ -3,7 +3,7 @@ Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download S
 - Title information based on the Performer name
 - Performer URL
 - URL of the post itself
-- Performer authored text associated with a given video
+- Details (Performer authored text associated with a given video)
 - Creation date of the post
 - (Image/Scene) x Performer association
 - (Image/Scene) x Studio association
