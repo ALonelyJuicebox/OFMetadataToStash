@@ -8,16 +8,17 @@ Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download S
 - (Image/Scene) x Performer association
 - (Image/Scene) x Studio association
 
-To be clear, this script _does not download any metadata from any website_. 
-You must already have this metadata file in your posession.
+To be clear, this script does _not_ download any metadata from any website. 
+If want all available metadata, you must already have this metadata file in your posession.
 
-Don't have an Onlyfans metadata database file? _No problem!_ This script can associate performer names/studio based on file paths as well!
+This script can associate performer names/studio based on file paths as well (if you don't have a metadata database to use)
 
-**Bonus Utility**: 
+### Additional Utilities: 
 
-The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily scrub all OnlyFans Metadata DB tables and redact filepaths of any information not relevant purely to tagging. This makes sharing your OnlyFans Database with others **far** less potentially sensitive! 🙂
+**OnlyFans Metadata Database Sanitizer** 
 
-Just install the SQLite module, run the OFMetadataDatabase_Sanitizer.ps1 file and it will prompt you for the path to your metadata database. Don't worry, the original file will NOT be modified.
+- Want to exchange your metadatabase with someone else but need a santized version without any potentially identifiable/unrelated information in it?
+  The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily produce a clone of the database of your choosing with filepaths/any information not relevant purely to tagging completely redacted.
 
 # Requirements
   - Fully tested on Stash v0.11 using DC OnlyFans Script v7.6.1 on the following operating systems
