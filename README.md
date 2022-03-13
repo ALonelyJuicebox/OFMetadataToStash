@@ -5,10 +5,10 @@ Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download S
 - Title information based on the Performer name
 - Performer URL
 - URL of the post itself
-- Details (Performer authored text associated with a given video)
+- Performer authored text associated with a given video added to Stash Details field
 - Creation date of the post
-- (Image/Scene) x Performer association
-- (Image/Scene) x Studio association
+- (Image and Scene) Performer association
+- (Image and Scene) Studio association
 
 To be clear, this script does _not_ download any metadata from any website. 
 If want all available metadata, you must already have this metadata file in your posession.
