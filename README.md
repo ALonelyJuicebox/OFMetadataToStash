@@ -1,5 +1,7 @@
 # OnlyFans Metadata to Stash Database Powershell Script
-Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as...
+![Image comparing the before/after results of this script](/readme_assets/oldtonew.png)
+
+Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as:
 - Title information based on the Performer name
 - Performer URL
 - URL of the post itself
