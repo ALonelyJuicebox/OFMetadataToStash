@@ -1,5 +1,5 @@
 # OnlyFans Metadata to Stash Database Powershell Script
-![Image comparing the before/after results of this script](/readme_assets/oldtonew.png)
+<img src="/readme_assets/oldtonew.png" width=60% height=60%>
 
 Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as:
 - Title information based on the Performer name
