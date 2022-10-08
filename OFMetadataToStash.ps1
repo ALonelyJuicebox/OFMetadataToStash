@@ -290,25 +290,6 @@ else {
                             $StashDBQueryResult = $null #Makes it so we don't try and parse metadata for this entry
                         }
 
-                        #Otherwise, good news, we found a match for the file in question
-                        elseif($StashDBQueryResult){
-                            #To make future queries faster for both this script and for future potential downloads with the OnlyFans script, let's redefine where the file is in the DG OnlyFans database
-                            $mediafilename = (get-item $StashDBQueryResult.path).name
-                            $directorypath = (get-item $StashDBQueryResult.path).directoryname
-
-                            #Sanitizing all of our paths for apostrophes so they don't ruin our SQL query
-                            $mediafilename = $mediafilename.replace("'","''")
-                            $directorypath = $directorypath.replace("'","''")
-                            $olddirectory = ($OFDBMedia.directory).replace("'","''")
-                            $oldfilename = ($OFDBMedia.filename).replace("'","''")
-                        
-                            $Query = "UPDATE medias SET directory = '$directorypath', filename = '$mediafilename' WHERE directory ='$olddirectory' AND filename = '$oldfilename';"
-                            Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath 
-
-                            #We change the filename to match what we found in the stash database
-                            $OFDBfilename = $StashDBQueryResult.path 
-                        }
-                        
                         #Well we tried, but couldn't find the file at all.
                         else{
                             #Let's move on, the media is on the filesystem but isn't in Stash so ask the user to run a scan
