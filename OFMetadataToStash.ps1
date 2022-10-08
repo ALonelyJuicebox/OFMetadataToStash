@@ -322,8 +322,8 @@ else {
                             
                             #Now we can process the file, based on media type
                             if(($mediatype -eq "video")){
-                                $Query = "UPDATE scenes SET title='"+$title+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFDBfilenameForQuery+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                                $Query = "UPDATE scenes SET title='"+$title+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDBQueryResult.ID+"'"
+                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
 
                                 #Updating Stash with the performer for this media if one is not already associated
                                 $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDBQueryResult.ID
@@ -338,8 +338,8 @@ else {
                             }
 
                             elseif($mediatype -eq "image"){
-                                $Query = "UPDATE images SET title='"+$title+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFDBfilenameForQuery+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                                $Query = "UPDATE images SET title='"+$title+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDBQueryResult.ID+"'"
+                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
 
                                 #Updating Stash with the performer for this media if one is not already associated
                                 $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDBQueryResult.ID
