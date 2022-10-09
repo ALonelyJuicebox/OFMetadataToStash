@@ -267,10 +267,12 @@ else {
                     if (!$StashDBQueryResult){
 
                         #Let's look for a file with the right file size that has the performername in the path just in case the file was moved
-                        switch ($mediatype) {
-                            "video" {$Query = "SELECT id,title,path,size,details FROM scenes WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size }
-                            "image" {$Query = "SELECT id,title,path,size FROM images WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size}
-                        }
+						if($performername && $OFDBMedia.size){
+							switch ($mediatype) {
+								"video" {$Query = "SELECT id,title,path,size,details FROM scenes WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size }
+								"image" {$Query = "SELECT id,title,path,size FROM images WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size}
+							}
+						}
                         $StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
 
                         #This is a scenario where a performer may have uploaded the same media twice and the file path has changed from what stash currently expects.
