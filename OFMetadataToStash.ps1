@@ -272,8 +272,8 @@ else {
 								"video" {$Query = "SELECT id,title,path,size,details FROM scenes WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size }
 								"image" {$Query = "SELECT id,title,path,size FROM images WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size}
 							}
+							$StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
 						}
-                        $StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
 
                         #This is a scenario where a performer may have uploaded the same media twice and the file path has changed from what stash currently expects.
                         if($StashDBQueryResult.count -gt 1){
