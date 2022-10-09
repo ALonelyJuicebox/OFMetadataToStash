@@ -135,13 +135,11 @@ else {
 
             #Later in the script we will need to merge the directory path and file name to get a single string. We need to know what deliminter to use based on OS
             #Writing it this way with a second if statement avoids an error from machines that are running Windows Powershell and not Powershell Core
-            if($PSVersionTable.properties.name -match "os"){
-                if(!($PSVersionTable.os -like "*Windows*")){
-                    $directorydelimiter = "/"
-                }
+            if($IsWindows){
+                $directorydelimiter = "\"
             }
             else{
-                $directorydelimiter = "\"
+                $directorydelimiter = "/"
             }
 
             write-host "`nQuick Tips: `n   - Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   - Be sure your various metadata database(s) are located either at`n     <performername>\user_data.db or at <performername\metadata\user_data.db"
