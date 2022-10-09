@@ -229,7 +229,7 @@ else {
                 }
                 
                 #Select all the media (except audio) and the text the performer associated to them, if available
-                $Query = "SELECT posts.post_id AS posts_postID, posts.text, posts.created_at, medias.post_id AS medias_postID, medias.size, medias.directory, medias.filename, medias.media_type FROM medias INNER JOIN POSTS ON medias.post_id=posts.post_id WHERE medias.media_type <> 'Audios'"
+                $Query = "SELECT posts.post_id AS posts_postID, posts.text, medias.created_at, medias.post_id AS medias_postID, medias.size, medias.directory, medias.filename, medias.media_type, medias.api_type FROM medias LEFT JOIN POSTS ON medias.post_id=posts.post_id WHERE medias.media_type <> 'Audios'"
                 $OF_DBpath = $currentdatabase.fullname 
                 $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
                 foreach ($OFDBMedia in $OFDBQueryResult){
@@ -243,9 +243,13 @@ else {
 
                     #This defines the full filepath of the media. These are separate columns in the OFDB so we must combine them in a separate variable.
                     $OFDBfilename = $OFDBMedia.directory +$directorydelimiter+ $OFDBMedia.filename
-
-                    #Storing a separate variant of the filepath with apostrophy sanitization so they don't ruin our SQL queries
-                    $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
+			
+					#Get the unique part of the path, Ignore containing directories (performer/<api_type>/<paid|free>/<media_type>/filename.ext)
+					$OFDBdirectories =($OFDBMedia.directory.Split($directorydelimiter) | select -Last 4)
+					$OFDBpathForQuery =($OFDBdirectories -join $directorydelimiter) + $directorydelimiter + $OFDBMedia.filename		
+					
+					$OFDBapiType = $OFDBMedia.api_type
+					$OFDBpaidOrFree = $OFDBdirectories[-2]
                 
                     #Note that the DigitalCriminals OF downloader quantifies gifs as videos for some reason
                     #Since Stash doesn't (and rightfully so), we need to account for this
@@ -258,8 +262,8 @@ else {
                     }
                     #Looking in the stash DB for the current filename we're parsing
                     switch ($mediatype) {
-                        "video" {$Query = "SELECT id,title FROM scenes WHERE scenes.path='"+$OFDBfilenameForQuery+"'" }
-                        "image" {$Query = "SELECT id,title FROM images WHERE images.path='"+$OFDBfilenameForQuery+"'"}
+                        "video" {$Query = "SELECT id,title FROM scenes WHERE scenes.path LIKE '%"+$OFDBpathForQuery+"'" }
+                        "image" {$Query = "SELECT id,title FROM images WHERE images.path LIKE '%"+$OFDBpathForQuery+"'"}
                     }
                     $StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
 
@@ -307,15 +311,17 @@ else {
                     if ($null -ne $StashDBQueryResult){
 
                         #Creating the title we want for the media
-                        $title = "$performername - $creationdatefromOF"
-
+                        $title = "$performername - $OFDBapiType - $OFDBpaidOrFree - $creationdatefromOF"
+						
                         #Quick check to see if this file already has metadata from this script
                         #Only Videos can have details (for now) so we have a condition to check for that here
-                        if (($StashDBQueryResult.title -ne $title) -or (($mediatype -eq "video") -and ($StashDBQueryResult.details -ne $OFDBMedia.text))){
+                        if ($StashDBQueryResult.title -ne $title){
                                 
                             #Sanitizing the text for apostrophes so they don't ruin our SQL query
                             $detailsToAddToStash = $OFDBMedia.text
-                            $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+							if($detailsToAddToStash){
+								$detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+							}
                             $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
                             
                             #Now we can process the file, based on media type
