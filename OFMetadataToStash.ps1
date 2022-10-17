@@ -135,13 +135,11 @@ else {
 
             #Later in the script we will need to merge the directory path and file name to get a single string. We need to know what deliminter to use based on OS
             #Writing it this way with a second if statement avoids an error from machines that are running Windows Powershell and not Powershell Core
-            if($PSVersionTable.properties.name -match "os"){
-                if(!($PSVersionTable.os -like "*Windows*")){
-                    $directorydelimiter = "/"
-                }
+            if($IsWindows){
+                $directorydelimiter = "\"
             }
             else{
-                $directorydelimiter = "\"
+                $directorydelimiter = "/"
             }
 
             write-host "`nQuick Tips: `n   - Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   - Be sure your various metadata database(s) are located either at`n     <performername>\user_data.db or at <performername\metadata\user_data.db"
@@ -269,11 +267,13 @@ else {
                     if (!$StashDBQueryResult){
 
                         #Let's look for a file with the right file size that has the performername in the path just in case the file was moved
-                        switch ($mediatype) {
-                            "video" {$Query = "SELECT id,title,path,size,details FROM scenes WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size }
-                            "image" {$Query = "SELECT id,title,path,size FROM images WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size}
-                        }
-                        $StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+						if($performername && $OFDBMedia.size){
+							switch ($mediatype) {
+								"video" {$Query = "SELECT id,title,path,size,details FROM scenes WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size }
+								"image" {$Query = "SELECT id,title,path,size FROM images WHERE path LIKE '%"+$performername+"%' AND size = "+$OFDBMedia.size}
+							}
+							$StashDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+						}
 
                         #This is a scenario where a performer may have uploaded the same media twice and the file path has changed from what stash currently expects.
                         if($StashDBQueryResult.count -gt 1){
@@ -290,27 +290,8 @@ else {
                             $StashDBQueryResult = $null #Makes it so we don't try and parse metadata for this entry
                         }
 
-                        #Otherwise, good news, we found a match for the file in question
-                        elseif($StashDBQueryResult){
-                            #To make future queries faster for both this script and for future potential downloads with the OnlyFans script, let's redefine where the file is in the DG OnlyFans database
-                            $mediafilename = (get-item $StashDBQueryResult.path).name
-                            $directorypath = (get-item $StashDBQueryResult.path).directoryname
-
-                            #Sanitizing all of our paths for apostrophes so they don't ruin our SQL query
-                            $mediafilename = $mediafilename.replace("'","''")
-                            $directorypath = $directorypath.replace("'","''")
-                            $olddirectory = ($OFDBMedia.directory).replace("'","''")
-                            $oldfilename = ($OFDBMedia.filename).replace("'","''")
-                        
-                            $Query = "UPDATE medias SET directory = '$directorypath', filename = '$mediafilename' WHERE directory ='$olddirectory' AND filename = '$oldfilename';"
-                            Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath 
-
-                            #We change the filename to match what we found in the stash database
-                            $OFDBfilename = $StashDBQueryResult.path 
-                        }
-                        
                         #Well we tried, but couldn't find the file at all.
-                        else{
+                        if($StashDBQueryResult -eq $null){
                             #Let's move on, the media is on the filesystem but isn't in Stash so ask the user to run a scan
                             if (Test-Path $OFDBfilename){
                                 write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nIt could be a duplicate that Stash decided not to import, but try running a Scan Task in Stash then re-running this script.`n`n - $OFDBfilename`n" -ForegroundColor Cyan
@@ -341,8 +322,8 @@ else {
                             
                             #Now we can process the file, based on media type
                             if(($mediatype -eq "video")){
-                                $Query = "UPDATE scenes SET title='"+$title+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFDBfilenameForQuery+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                                $Query = "UPDATE scenes SET title='"+$title+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDBQueryResult.ID+"'"
+                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
 
                                 #Updating Stash with the performer for this media if one is not already associated
                                 $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDBQueryResult.ID
@@ -357,8 +338,8 @@ else {
                             }
 
                             elseif($mediatype -eq "image"){
-                                $Query = "UPDATE images SET title='"+$title+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFDBfilenameForQuery+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                                $Query = "UPDATE images SET title='"+$title+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDBQueryResult.ID+"'"
+                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
 
                                 #Updating Stash with the performer for this media if one is not already associated
                                 $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDBQueryResult.ID
