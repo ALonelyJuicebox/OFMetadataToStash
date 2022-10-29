@@ -1,3 +1,5 @@
+# WARNING: This script only works with Stash v16 and below. Updates forthcoming.
+
 # OnlyFans Metadata to Stash Database Powershell Script
 <img src="/readme_assets/oldtonew.png" width=60% height=60%>
 
