@@ -169,7 +169,7 @@ else {
                 #Creating a studio also requires a updated_at/created_at timestamp
                 $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
 
-                $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com','"+$studioNameMD5.hash+"', '"+$timestamp+"', '"+$timestamp+"')"
+                $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com',13954e64886e8317d2df22fec295e924', '"+$timestamp+"', '"+$timestamp+"')"
                 $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                 write-host "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
 
