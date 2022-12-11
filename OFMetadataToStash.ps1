@@ -291,7 +291,7 @@ else {
                         }
 
                         #Well we tried, but couldn't find the file at all.
-                        if($StashDBQueryResult -eq $null){
+                        if($null -eq$StashDBQueryResult){
                             #Let's move on, the media is on the filesystem but isn't in Stash so ask the user to run a scan
                             if (Test-Path $OFDBfilename){
                                 write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nIt could be a duplicate that Stash decided not to import, but try running a Scan Task in Stash then re-running this script.`n`n - $OFDBfilename`n" -ForegroundColor Cyan
