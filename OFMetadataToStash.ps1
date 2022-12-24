@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata to Stash Database PoSH Script 0.3---
+---OnlyFans Metadata to Stash Database PoSH Script 0.4---
 
 AUTHOR
     JuiceBox
