@@ -599,6 +599,7 @@ else {
 
         write-host "This feature is temporarily unavailable." -ForegroundColor red
         read-host "Press [Enter] to exit"
+        exit
 
         write-host "`n- Quick Tips - " -ForegroundColor Cyan
         write-host "    - This script will try and determine a performer name for discovered files based on file path."
