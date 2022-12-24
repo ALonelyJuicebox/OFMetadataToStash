@@ -135,9 +135,9 @@ REQUIREMENTS
     write-host "--------------------------`n"
     write-host "(3 of 3b) Review your settings`n"
 
-    write-host "Path to Stash Database:`n$PathToStashDatabase`n"
-    write-host "Path to OnlyFans Content:`n$PathToOnlyFansContent`n"
-    write-host "Search Metadata Match Specificity Mode:`n$SearchSpecificity`n"
+    write-host "Path to Stash Database:`n - $PathToStashDatabase`n"
+    write-host "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
+    write-host "Search Metadata Match Specificity Mode:`n - $SearchSpecificity`n"
 
     read-host "Press [Enter] to save this configuration"
 
@@ -305,13 +305,14 @@ else {
                 write-host "OK, all performers will be processed."
             }
             else{
-                $performername = $collectionOfDatabaseFiles[$selectednumber-1].FullName | split-path | split-path -leaf
+                $selectednumber = $selectednumber-1 #Since we are dealing with a 0 based array, i'm realigning the user selection
+                $performername = $collectionOfDatabaseFiles[$selectednumber].FullName | split-path | split-path -leaf
                 if ($performername -eq "metadata"){
-                    $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+                    $performername = $collectionOfDatabaseFiles[$selectednumber].FullName | split-path | split-path | split-path -leaf #Basically if we hit the metadata folder, go a folder higher and call it the performer
                 }
                 
                 #Specifically selecting the performer the user wants to parse.
-                $collectionOfDatabaseFiles = $collectionOfDatabaseFiles[$selectednumber-1]
+                $collectionOfDatabaseFiles = $collectionOfDatabaseFiles[$selectednumber]
 
                 write-host "OK, the performer '$performername' will be processed."
             }
@@ -362,17 +363,23 @@ else {
                     $performername = $currentdatabase.fullname | split-path | split-path | split-path -leaf
                 }
                 write-host "`nParsing media for $performername" -ForegroundColor Cyan
-
-                #Getting the Performer ID from either the name or one of the aliases, or creating it if it does not exist
+            
+                #Conditional tree for finding the performer ID using either the name or the alias (or creating the performer if neither option work out)
                 $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
                 $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                if(!$StashDB_PerformerQueryResult){
-
+                if($StashDB_PerformerQueryResult){
+                    $PerformerID = $StashDB_PerformerQueryResult.id
+                }
+                else{
+                    #No luck using the name to track down the performer ID, let's try the alias
                     $Query = "SELECT id FROM performers WHERE aliases LIKE '%"+$performername+"%'"
                     $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                
-                    if(!$StashDB_PerformerQueryResult){
-
+                    
+                    if($StashDB_PerformerQueryResult){
+                        $PerformerID = $StashDB_PerformerQueryResult.id
+                    }
+                    #Otherwise both options failed so let's create the performer
+                    else{   
                         #Stash's DB requires an MD5 hash of the name of the performer for performer creation
                         $stringAsStream = [System.IO.MemoryStream]::new()
                         $writer = [System.IO.StreamWriter]::new($stringAsStream)
@@ -388,14 +395,11 @@ else {
                         $Query = "INSERT INTO performers (checksum, name, url, created_at, updated_at) VALUES ('"+$performernamemd5.hash+"', '"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
                         Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                         write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
-                    }
-            
-                    $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                    $PerformerID = $StashDB_PerformerQueryResult.id
-                }
-                else {
-                    $PerformerID = $StashDB_PerformerQueryResult.id
+
+                        $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
+                        $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                        $PerformerID = $StashDB_PerformerQueryResult.id
+                    }       
                 }
                 
                 #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
@@ -479,62 +483,83 @@ else {
 
                     #Let's process each matching result and add the metadata we've found
                     else{
-                        #Creating the title we want for the media
-                        $proposedtitle = "$performername - $creationdatefromOF"
-
                         #Since we can potentially match against multiple files, we iterate through a loop, regardless of media type
                         for ($i=0; $i -lt $StashDB_QueryResult.length; $i++){
 
-
-
+                            #Creating the title we want for the media
+                            $proposedtitle = "$performername - $creationdatefromOF"
                             
-                            #Quick check to see if this file already has metadata from this script
-                            #Only Videos can have details (for now) so we have a condition to check for that here
-                            if (($StashDB_QueryResult.scenes_title -ne $proposedtitle) -or (($mediatype -eq "video") -and ($StashDB_QueryResult[$i].scenes_details -ne $OFDBMedia.text))){
-                                    
-                                #Sanitizing the text for apostrophes so they don't ruin our SQL query
-                                $detailsToAddToStash = $OFDBMedia.text
-                                $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
-                                $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
-                                
-                                #Now we can process the file, based on media type
-                                if(($mediatype -eq "video")){
+                            #Sanitizing the text for apostrophes so they don't ruin our SQL query
+                            $detailsToAddToStash = $OFDBMedia.text
+                            $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                            $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
+
+                            #Let's check to see if this is a file that already has metadata.
+                            #For Videos, we check the title and the details
+                            #For Images, we only check the title (for now)
+                            #If any metadata is missing, we don't both with updating a specific column, we just update the entire row
+
+                            if ($mediatype -eq "video"){
+                                $filewasmodified = $false
+
+                                #Updating scene metadata if necessary
+                                if (($StashDB_QueryResult[$i].scenes_title -ne $proposedtitle) -or ($StashDB_QueryResult[$i].scenes_details -ne $OFDBMedia.text)){
                                     $Query = "UPDATE scenes SET title='"+$proposedtitle+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult[$i].scenes_id+"'"
                                     Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
+                                
+                                #Updating Stash with the performer for this media if one is not already associated
+                                $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDB_QueryResult[$i].scenes_id
+                                $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                if(!$StashDB_PerformerUpdateResult){
+                                    $Query = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerid+","+$StashDB_QueryResult[$i].scenes_id+")"
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
 
-                                    #Updating Stash with the performer for this media if one is not already associated
-                                    $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDB_QueryResult[$i].scenes_id
-                                    $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-                                    if(!$StashDB_PerformerUpdateResult){
-                                        $Query = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerid+","+$StashDB_QueryResult[$i].scenes_id+")"
-                                        Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                    }
+                                #Providing user feedback and adding to the modified counter if necessary
+                                if ($filewasmodified){
                                     write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                     $numModified++  
                                 }
+                                else{
+                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    $numUnmodified++
+                                }
 
-                                elseif($mediatype -eq "image"){
+                                
+                            }
+                            else{ #For images
+                                $filewasmodified = $false
+
+                                #Updating image metadata if necessary
+                                if ($StashDB_QueryResult[$i].images_title -ne $proposedtitle){
                                     $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult[$i].images_id+"'"
                                     Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
 
-                                    #Updating Stash with the performer for this media if one is not already associated
-                                    $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult[$i].images_id
-                                    $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                #Updating Stash with the performer for this media if one is not already associated
+                                $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult[$i].images_id
+                                $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                if(!$StashDB_PerformerUpdateResult){
+                                    $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult[$i].images_id+")"
+                                    
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
 
-                                    if(!$StashDB_PerformerUpdateResult){
-                                        $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult[$i].images_id+")"
-                                        Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                    }
+                                #Providing user feedback and adding to the modified counter if necessary
+                                if ($filewasmodified){
                                     write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                     $numModified++  
                                 }
+                                else{
+                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    $numUnmodified++
+                                }
                             }
-                            else {
-                                write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                                $numUnmodified++
-                            }
-
                         }
                     } 
                 }
@@ -571,6 +596,9 @@ else {
 
     #Code for auto determining performer
     elseif($userscanselection -eq 2){
+
+        write-host "This feature is temporarily unavailable." -ForegroundColor red
+        read-host "Press [Enter] to exit"
 
         write-host "`n- Quick Tips - " -ForegroundColor Cyan
         write-host "    - This script will try and determine a performer name for discovered files based on file path."
