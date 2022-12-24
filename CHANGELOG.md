@@ -1,3 +1,12 @@
+**0.4 Release (12/xx/2022)**
+-  **Feature** - Now supports Stash's 0.18 schema (phew!)
+-  **Feature** - Script now helps you build out the config file
+-  **Feature** - You can now customize how specific the script will be when it comes to matching your data! As a result, significant speed improvements!
+-  **Feature** - Full Docker support (as long as you use "normal" or "low" metadata matching modes)
+-  **Feature** - Script now just adds metadata to all matches rather than attempt to track duplicates as it did before
+-  **Feature** - Unit testing script will make migrating to a new schema far easier
+-  **Bugfix** - No longer modifies the OF DB at any point (Sorry about that!)
+
 **0.3 Release (1/5/2022)**
 -  **Feature** - Includes a OnlyFans Metadata Database Sanitizer utility to generate a completely scrubbed/redacted copy of a given OnlyFans Metadata database for sharing purposes!
 -  **Feature** - Image support!
