@@ -1,5 +1,3 @@
-# WARNING: This script only works with Stash v16 and below. Updates forthcoming.
-
 # OnlyFans Metadata to Stash Database Powershell Script
 <img src="/readme_assets/oldtonew.png" width=60% height=60%>
 
@@ -25,8 +23,8 @@ This script can associate performer names/studio based on file paths as well (if
   The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily produce a clone of the database of your choosing with filepaths/any information not relevant purely to tagging completely redacted.
 
 # Requirements
-  - Fully tested on Stash v0.11 using DC OnlyFans Script v7.6.1 on the following operating systems
-    -  **Windows 10** with Windows Powershell (Built-in)
+  - Fully tested on Stash v0.18 using DC OnlyFans Script v7.6.1 on the following operating systems
+    -  **Windows 11** with Windows Powershell 7.3.1
     -  **Linux** using Powershell Core (both ARM and x86 releases tested)
     -  **macOS** using Powershell Core
   - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
@@ -37,5 +35,5 @@ This script can associate performer names/studio based on file paths as well (if
 # How to Run
 - If you aren't on Windows (or are on anything older than Windows 10), install Powershell Core, available for Linux and macOS!
 - Ensure you've installed PSSQLite as described in the section above
-- Download the latest release, making sure to edit `OFMetadataToStash_Config` to define where your OnlyFans content is, as well as the location of your Stash Database file
+- Download the latest release of this script
 - Open Powershell, and run the command `.\ofmetadatatostash.ps1`
