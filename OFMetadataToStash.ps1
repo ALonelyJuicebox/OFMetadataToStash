@@ -107,14 +107,14 @@ REQUIREMENTS
     write-host "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-host "    * If you are an average user, just set this to 'Normal'"
     write-host "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
-    write-host "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path"
-    write-host "Option 2: Low    - Will match only based on a matching Filesize"
-    write-host "Option 3: High   - Will match based on a matching path AND a matching filesize"
+    write-host "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
+    write-host "Option 2: Low    - Will match based only on a matching Filesize"
+    write-host "Option 3: High   - Will match based on a matching path and a matching Filesize"
 
 
     $specificityselection = 0;
     do {
-        $specificityselection = read-host "`nEnter selection"
+        $specificityselection = read-host "`nEnter selection (1-3)"
     }
     while (($specificityselection -notmatch "[1-3]"))
 
@@ -137,7 +137,7 @@ REQUIREMENTS
 
     write-host "Path to Stash Database:`n - $PathToStashDatabase`n"
     write-host "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
-    write-host "Search Metadata Match Specificity Mode:`n - $SearchSpecificity`n"
+    write-host "Metadata Match Specificity Mode:`n - $SearchSpecificity`n"
 
     read-host "Press [Enter] to save this configuration"
 
@@ -160,10 +160,10 @@ REQUIREMENTS
 ### Main Script
 #We need to know what deliminter to use based on OS. Writing it this way with a second if statement avoids an error from machines that are running Windows Powershell and not Powershell Core
 if($IsWindows){
-    $directorydelimiter = "\"
+    $directorydelimiter = '\'
 }
 else{
-    $directorydelimiter = "/"
+    $directorydelimiter = '/'
 }
 
 
@@ -178,7 +178,12 @@ $PathToStashDatabase = (Get-Content $pathtoconfigfile)[1]
 $PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[3]
 $SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
 $PathToMissingFilesLog = "."+$directorydelimiter+"OFMetadataToStash_MissingFiles.txt"
-$StashDB_SchemaVersion = 41 #Stash DB Schema version this script is designed for. Do NOT change this value unless you know what you are doing and have validated that all SQL queries in this script will work
+$PathToStashExampleDB = "$directorydelimeter"+"utilities"+"$directorydelimiter"+"stash_example_db.sqlite" #We use this database for schema comparison
+if (!(test-path $PathToStashExampleDB)){
+    write-host "Error: Could not find '$PathToStashExampleDB'. Please redownload this script from Github." -ForegroundColor red
+    read-host "Press [Enter] to exit"
+    exit
+}
 
 clear-host
 write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
@@ -191,26 +196,125 @@ if (!(test-path $PathToStashDatabase)){
 #If the Stash Database path checks out, let's confirm that the schema in the database aligns with what this script is written for. 
 else{
     $Query = "SELECT version FROM schema_migrations"
-    $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+    $KnownSchemaVersion = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
+    $KnownSchemaVersion = $KnownSchemaVersion.version
+
+    $Query = "SELECT version FROM schema_migrations"
+    $StashDB_SchemaVersion = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+    $StashDB_SchemaVersion = $StashDB_SchemaVersion.version
     
-    if (($StashDB_QueryResult.version -ne $StashDB_SchemaVersion) -or ($StashDB_QueryResult.version -notmatch '^\d+$')){
-        if($StashDB_QueryResult.version -gt $StashDB_SchemaVersion){
-            write-host "This Stash Database has a database schema that is newer than what this script can handle.`nPlease check GitHub (https://github.com/ALonelyJuicebox/OFMetadataToStash) to see if there is a new version" -ForegroundColor red
-            write-host "Stash DB Version: "+$StashDB_QueryResult.version+"Supported StashDB Version: $StashDB_SchemaVersion"
-            read-host "Press [Enter] to exit"
-            exit
+    if (($StashDB_SchemaVersion -ne $KnownSchemaVersion) -or ($StashDB_SchemaVersion -notmatch '^\d+$')){
+        if($StashDB_SchemaVersion -gt $KnownSchemaVersion){
+            write-host "`nYour Stash database has a newer database schema than expected!"
+            write-host "(Expected version $KnownSchemaVersion, your Stash database is running Stash schema version $StashDB_SchemaVersion)"
+            write-host "Checking for incompatibility...`n"
+            #Get all tables from the new database
+            $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"
+            $Stash_Tables = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+
+            #If any crucially important tables are modified lets track that with this bool
+            $IncompatibleDB = $false
+
+            foreach ($Stash_Table in $Stash_Tables){
+                $Stash_Table_Name = $Stash_Table.name
+                
+                #Check to see if this table exists in the Stash Example database
+                $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%' AND name = '"+$Stash_Table_Name+"'"
+                $TableExistance = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
+
+                #If the table exists in the Stash Example database, let's check each column and ensure we have matches
+                if ($null -ne $TableExistance){
+                    
+                    #These two queries returns all columns from a given table name. We grab all columns from both the user provided Stash db and the stash example db for comparison purposes
+                    $Query = "PRAGMA table_info($Stash_Table_Name)"
+                    $NewerColumns = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+
+                    $Query = "PRAGMA table_info($Stash_Table_Name)"
+                    $OlderColumns = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
+
+                    #We also want to track the tables that do not get modified
+                    $TableWasModified = $false
+                    
+                    #Now we iterate through the columns of the user provided Stash DB and see if there's any columns that cannot be found in this table.
+                    foreach($column in $NewerColumns.name) {
+                        if ($olderColumns.name -notcontains $column) {
+
+                            #Flip the bool so that we know that this table has been modified
+                            $TableWasModified = $true
+                        }
+                    } 
+                    #Now we check to see if there are columns in the Stash Example DB that no longer exist in the new table
+                    foreach($column in $OlderColumns.name) {
+                        if ($newerColumns.name -notcontains $column) {
+                            
+                            #Flip the bool so that we know that this table has been modified
+                            $TableWasModified = $true
+                        }
+                    } 
+                    if ($TableWasModified -eq $true){
+                        switch($Stash_Table_Name){
+                            "scenes" {$IncompatibleDB = $True;write-host "- Hmm...The 'Scenes' table has been modified in this new db schema"}
+                            "images"{$IncompatibleDB = $True;write-host "- Hmm...The 'Images' table has been modified in this new db schema"}
+                            "performers"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performers' table has been modified in this new db schema"}
+                            "studios" {$IncompatibleDB = $True;write-host "- Hmm...The 'Studios' table has been modified in this new db schema"}
+                            "folders" {$IncompatibleDB = $True;write-host "- Hmm...The 'Folders' table has been modified in this new db schema"}
+                            "files" {$IncompatibleDB = $True;write-host "- Hmm...The 'Files' table has been modified in this new db schema"}
+                            "performers_scenes"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_scenes' table has been modified in this new db schema"}
+                            "performers_images"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_images' table has been modified in this new db schema"}
+                        }
+                    }
+                }
+            }
+
+            
+            if($IncompatibleDB -eq $true){
+                
+                write-host "`nFor the reason(s) mentioned above, your database may be incompatible with this script" -ForegroundColor red
+                write-host "Running this script may change your database in unexpected, untested ways. "
+
+                write-host "`n1 - Press [Enter] to exit."
+                write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
+
+                $userinput = read-host "`nWhat would you like to do?"
+                if($userinput -notmatch "Never tell me the odds!"){
+                    write-host "Exiting..."
+                    exit
+                }
+                #User wants to continue, so lets clear the host and make it look like we're starting fresh
+                clear-host
+                write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+            }
+            else{
+                write-host "`nNo incompatibilites detected!" -ForegroundColor green
+                write-host "While no incompatibilities were detected, please look for an`nupdated version of this script just to be safe."
+                read-host "`nPress [Enter] to continue"
+            }
         }
-        elseif ($StashDB_QueryResult.version -lt $StashDB_SchemaVersion) {
-            write-host "The database schema that this script is written for (version $StashDB_SchemaVersion) is newer than the Stash DB you have selected. Upgrade your Stash instance to the latest version and re-run this script." -ForegroundColor red
-            read-host "Press [Enter] to exit"
-            exit
+        elseif ($StashDB_SchemaVersion -lt $KnownSchemaVersion) {
+            write-host "Your database is unfortunately a bit outdated!" -ForegroundColor red
+            write-host "Please upgrade your Stash instance to the latest version, then re-run this script."
+
+            write-host "`n1 - Press [Enter] to exit."
+            write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
+            
+
+            $userinput = read-host "`nWhat would you like to do?"
+            if($userinput -notmatch "Never tell me the odds!"){
+             write-host "Exiting..."
+                exit
+            }
+            #User wants to continue, so lets clear the host and make it look like we're starting fresh
+            clear-host
+            write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
         }
         else {
             write-host "Hmm... this Stash database is not of a schema that this script was expecting. " -ForegroundColor red
             read-host "Press [Enter] to exit"
+            exit
         }
     }
 }
+
 
 if (!(test-path $PathToOnlyFansContent)){
     #Couldn't find the path? Send the user to recreate their config file with the set-config function
