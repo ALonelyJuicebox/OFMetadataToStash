@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata Database Sanitizer PoSH Script 0.1---
+---OnlyFans Metadata Database Sanitizer PoSH Script 0.2---
 
 AUTHOR
     JuiceBox
@@ -82,7 +82,7 @@ if (test-path $pathToOriginalStashdb){
         }
         
         #Sanitizing the DB
-        $Query = "DROP TABLE alembic_version; DROP TABLE messages; DROP TABLE others; DROP TABLE products; DROP TABLE stories; UPDATE medias SET directory = 'Z:\REDACTED\', link = 'www.onlyfans.com'; UPDATE posts SET price = 0, paid = 0, archived = 0;"
+        $Query = "DELETE FROM alembic_version; DELETE FROM messages; DELETE FROM others; DELETE FROM products; DELETE FROM stories; UPDATE medias SET directory = 'Z:\REDACTED\', link = 'www.onlyfans.com'; UPDATE posts SET price = 0, paid = 0, archived = 0; VACUUM"
         Invoke-SqliteQuery -Query $Query -DataSource $pathtomodifiedstashdb
 
         #Zipping up the file
