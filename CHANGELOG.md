@@ -8,6 +8,7 @@
 -  **Feature** - Unit testing script will make migrating to a new schema far easier
 -  **Bugfix** - No longer modifies the OF DB at any point
 -  **Bugfix** - Script now imports metadata for media that was sent to the user via a Message
+-  **Bugfix** - Database Sanitizer script now runs VACUUM command to further ensure the generated (and sanitized) copy is truly sanitized
 
 **0.3 Release (1/5/2022)**
 -  **Feature** - Includes a OnlyFans Metadata Database Sanitizer utility to generate a completely scrubbed/redacted copy of a given OnlyFans Metadata database for sharing purposes!
