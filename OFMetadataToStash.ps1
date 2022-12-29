@@ -103,7 +103,7 @@ REQUIREMENTS
     write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
     write-host "Configuration Setup Wizard"
     write-host "--------------------------`n"
-    write-host "(3 of 3) Define your Metadata Match Specificity mode"
+    write-host "(3 of 3) Define your Metadata Match Mode"
     write-host "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-host "    * If you are an average user, just set this to 'Normal'"
     write-host "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
@@ -137,7 +137,7 @@ REQUIREMENTS
 
     write-host "Path to Stash Database:`n - $PathToStashDatabase`n"
     write-host "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
-    write-host "Metadata Match Specificity Mode:`n - $SearchSpecificity`n"
+    write-host "Metadata Match Mode:`n - $SearchSpecificity`n"
 
     read-host "Press [Enter] to save this configuration"
 
@@ -208,6 +208,7 @@ else{
             write-host "`nYour Stash database has a newer database schema than expected!"
             write-host "(Expected version $KnownSchemaVersion, your Stash database is running Stash schema version $StashDB_SchemaVersion)"
             write-host "Checking for incompatibility...`n"
+            
             #Get all tables from the new database
             $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"
             $Stash_Tables = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
@@ -329,7 +330,7 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     Set-Config
 }
 else {
-    write-host "* Metadata Match Specificity: $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
+    write-host "* Metadata Match Mode: $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
     write-host "What would you like to do?"
     write-host " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
     write-host " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
@@ -507,13 +508,13 @@ else {
                 }
                 
                 #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
-                $Query = "SELECT posts.post_id AS posts_postID, posts.text, posts.created_at, medias.post_id AS medias_postID, medias.size, medias.directory, medias.filename, medias.media_type FROM medias INNER JOIN POSTS ON medias.post_id=posts.post_id WHERE medias.media_type <> 'Audios'"
+                $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
                 $OF_DBpath = $currentdatabase.fullname 
                 $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
                 foreach ($OFDBMedia in $OFDBQueryResult){
 
                     #Generating the URL for this post
-                    $linktoperformerpage = "https://www.onlyfans.com/"+$OFDBMedia.posts_postID+"/"+$performername
+                    $linktoperformerpage = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
                     
                     #Reformatting the date to something stash appropriate
                     $creationdatefromOF = $OFDBMedia.created_at
@@ -994,5 +995,3 @@ else {
         Set-Config
     }
 }
-
-
