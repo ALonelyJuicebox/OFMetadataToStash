@@ -760,8 +760,9 @@ else {
         $performerbuffer = @('performername',0)
         
         #Because of how fast this script runs, we need a buffer to limit how often we write out to the DB to avoid db write issues
-        #First object in the array is the number of "queries" that have been collected so far, and the second object is the queries themselves, as a single string
-        $QueryBuffer = @(0,$null)
+        #We use a counter to keep track of when the buffer is full
+        $QueryBuffer = [Object[]]::new(20)
+        $QueryBufferCounter = 0
 
         #Grabbing the date so we can show elapsed time later
         $scriptStartTime = get-date
@@ -934,12 +935,12 @@ else {
                 #If this media doesn't have a related performer, let's go ahead and add one
                 if(!$StashDB_PerformerQueryResult){
                     if($mediatype -eq "image"){
-                        $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
+                        $QueryBuffer[$QueryBufferCounter] = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
+                        $QueryBufferCounter++
                     }
                     else{
-                        $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
+                        $QueryBuffer[$QueryBufferCounter] = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
+                        $QueryBufferCounter++
                     }
                     write-host "- Added metadata to Stash's database for the following file:`n   $OFFile" 
                     $numModified++
@@ -952,21 +953,41 @@ else {
                 #If this media doesn't have a related studio, let's go ahead and add one.
                 if($StashDBSceneQueryResult.studioID -ne $OnlyFansStudioID){
                     if($mediatype -eq "image"){
-                        $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE images SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
+                        $QueryBuffer[$QueryBufferCounter] = "UPDATE images SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
+                        $QueryBufferCounter++
                     }
                     else{
-                        $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE scenes SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
+                        $QueryBuffer[$QueryBufferCounter] = "UPDATE scenes SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
+                        $QueryBufferCounter++
                     }
                 }
             }
             #If this is the last time we're going to iterate over this collection of discovered files OR if our buffer is full enough
-            if(($i -eq $OFfilestoscan.count) -or ($QueryBuffer[0] -gt 20)){
+            #Please note the number of potential queries that can execute with each loop and subtract that number from the maximum size of the array to get the number to set in order to trigger a buffer refresh. 
+            #For example, two potential queries (an update and an insert) with a max array size of 20 would give you a reset trigger of 18
+            if(($i -eq $OFfilestoscan.count) -or ($QueryBufferCounter -gt 18)){
+
+                #Nested loop to look for duplicates in our Query buffer before we create the combined query that will go to Stash
+                $QueryForStash = "" #Just making sure the variable is clear before creating the string
+                For ($a=0; $a -le $QueryBuffer.count; $a++) {
+                    $numduplicates = -1 #We set this to -1 because at least one match should be discovered (otherwise it wouldn't be an entry in the array)
+
+                    For ($b=0; $b -le $QueryBuffer.count; $b++) {
+                        if($QueryBuffer[$b] -eq $QueryBuffer[$a]){
+                            $numduplicates++
+                        }
+                    }
+                    #If there are no dupes of this query, let's add it to the larger query.
+                    if($numduplicates -eq 0){
+                        $QueryForStash = $QueryForStash + $QueryBuffer[$a]
+                    }
+                }
+
                 #Run the query against the db, and flush the buffer
-                Invoke-SqliteQuery -Query $QueryBuffer[1] -DataSource $PathToStashDatabase
-                $QueryBuffer[1] = $null
-                $QueryBuffer[0] = 0
+                Invoke-SqliteQuery -Query $QueryForStash -DataSource $PathToStashDatabase
+                $QueryBuffer = [Object[]]::new(20)
+                $QueryBufferCounter = 0
+                
             }
         }
         write-host "`n****** Import Complete ******"-ForegroundColor Cyan
