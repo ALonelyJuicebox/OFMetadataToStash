@@ -326,7 +326,7 @@ if (!(test-path $PathToOnlyFansContent)){
 
 if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     #Something goofy with the variable? Send the user to recreate their config file with the set-config function
-    read-host "Hmm...The Metadata Match Specificity parameter isn't well defined in your configuration file.`n`nPress [Enter] to run through the config wizard"
+    read-host "Hmm...The Metadata Match Mode parameter isn't well defined in your configuration file.`n`nPress [Enter] to run through the config wizard"
     Set-Config
 }
 else {
@@ -724,17 +724,14 @@ else {
     }
    
 
-    #Code for auto determining performer
+###Code for the "No Metadata Database" feature
     elseif($userscanselection -eq 2){
 
-        write-host "This feature is temporarily unavailable." -ForegroundColor red
-        read-host "Press [Enter] to exit"
-        exit
-
         write-host "`n- Quick Tips - " -ForegroundColor Cyan
-        write-host "    - This script will try and determine a performer name for discovered files based on file path."
-        write-host "    - Files that already have metadata will be ignored."
-        write-host "    - Please be sure *not* to scan content that isn't OnlyFans content."
+        write-host "    - This script will try and determine performer names for discovered files based on file path."
+        write-host "    - Files that already have metadata in Stash will be ignored."
+        write-host "    - Please be sure to NOT scan folders that do not contain OnlyFans content."
+        write-host "    - This feature will likely not work well for Docker users due to path mismatches!"
 
         #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
         $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
@@ -756,7 +753,8 @@ else {
             write-host "...Done! A backup was successfully created."
         }
 
-        read-host "`nPress [Enter] to start parsing your directory"
+        write-host "`nThe following path will be parsed:`n - $PathToOnlyFansContent"
+        read-host "`nPress [Enter] to begin"
 
         #A buffer for Performer Name and Performer ID to minimize how often we reach out to the DB. 
         $performerbuffer = @('performername',0)
@@ -798,8 +796,13 @@ else {
 
         $OFfilestoscan = get-childitem $pathToOnlyFansContent -file -recurse -exclude *.db 
 
+        #Iterate through all the files we found
         for($i=0; $i -lt $OFfilestoscan.count; $i++){
             $OFFile = $OFfilestoscan[$i]
+
+            #When we run SQL queries later, we will need the folder path and the filename split out.
+            $OFmediaParentFolder = split-path $OFFile
+            $OFmediaFilename = split-path $OFFile -leaf
 
             $mediatype = $null
             #We need to determine if we're working with an image or not
@@ -824,12 +827,13 @@ else {
                 $patharray = $OFFile.tostring().Split("\")
             }
 
-            $patharrayposition = $patharray.count-1
-            $foundperformer = $false
 
             #So the way this works is basically that we have a known list of what the filepaths for onlyfans content should look like. 
             #Therefore we can work backwards from the file itself, iterating through the path until we find something unexpected.
             #That unexpected folder name will be our performer name.
+            $patharrayposition = $patharray.count-1
+            $foundperformer = $false
+
             switch($patharray[$patharrayposition-1]){
                 "videos"{$patharrayposition--}
                 "images" {$patharrayposition--}
@@ -867,14 +871,14 @@ else {
 
             #Looking in the stash DB for the current filename we're parsing
             if($mediatype -eq "image"){
-                $Query = "SELECT id,studio_id FROM images WHERE images.path='"+$OFFile+"'"
+                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title, images.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
                 $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-                $mediaid = $StashDBSceneQueryResult.id
+                $mediaid = $StashDBSceneQueryResult.images_id
             }
             else {
-                $Query = "SELECT id,studio_id FROM SCENES WHERE scenes.path='"+$OFFile+"'"
+                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
                 $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-                $mediaid = $StashDBSceneQueryResult.id
+                $mediaid = $StashDBSceneQueryResult.scenes_id
             }
 
             #If Stash has this file, we can work with it.
@@ -920,7 +924,7 @@ else {
                 #Checking to see if we have a related performer for this media
                 if($mediatype -eq "image"){
                     $Query = "SELECT * FROM performers_images WHERE performer_id = "+$performerbuffer[1]+" AND image_id = $mediaid"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
                 }
                 else {
                     $Query = "SELECT * FROM performers_scenes WHERE performer_id = "+$performerbuffer[1]+" AND scene_id = $mediaid"
@@ -949,11 +953,11 @@ else {
                 if($StashDBSceneQueryResult.studioID -ne $OnlyFansStudioID){
                     if($mediatype -eq "image"){
                         $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE images SET studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFFile+"';"
+                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE images SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
                     }
                     else{
                         $QueryBuffer[0] = $QueryBuffer[0]+1
-                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE scenes SET studio_id='"+$OnlyFansStudioID+"' WHERE path='"+$OFFile+"';"
+                        $QueryBuffer[1] = $QueryBuffer[1]+"UPDATE scenes SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
                     }
                 }
             }
