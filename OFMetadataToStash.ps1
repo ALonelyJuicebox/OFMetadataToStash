@@ -21,10 +21,10 @@ REQUIREMENTS
 #Set-Config is a wizard that walks the user through the configuration settings
  function Set-Config{
     clear-host
-    write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
     write-host "Configuration Setup Wizard"
     write-host "--------------------------`n"
-    write-host "(1 of 3) Define the path to your your Stash Database file"
+    write-host "(1 of 3) Define the path to  your Stash Database file"
     write-host "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named"$directorydelimiter"db"$directorydelimiter" with a filename of 'stash-go.sqlite'`n"
     
     if ($null -ne $PathToStashDatabase){
@@ -53,7 +53,7 @@ REQUIREMENTS
     }
     while(!(test-path $PathToStashDatabase))
     clear-host
-    write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
     write-host "Configuration Setup Wizard"
     write-host "--------------------------`n"
     write-host "(2 of 3) Define the path to your OnlyFans content`n"
@@ -100,7 +100,7 @@ REQUIREMENTS
     }
     while(!(test-path $PathToOnlyFansContent))
     clear-host
-    write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
     write-host "Configuration Setup Wizard"
     write-host "--------------------------`n"
     write-host "(3 of 3) Define your Metadata Match Mode"
@@ -130,7 +130,7 @@ REQUIREMENTS
     }
 
     clear-host
-    write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
     write-host "Configuration Setup Wizard"
     write-host "--------------------------`n"
     write-host "(3 of 3b) Review your settings`n"
@@ -186,7 +186,7 @@ if (!(test-path $PathToStashExampleDB)){
 }
 
 clear-host
-write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
 
 if (!(test-path $PathToStashDatabase)){
     read-host "Hmm...The defined path to your Stash Database file (Stash-go.sqlite) does not seem to exist at the location in your config file`n($PathToStashDatabase)`n`nPress [Enter] to run through the config wizard"
@@ -330,11 +330,13 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     Set-Config
 }
 else {
-    write-host "* Metadata Match Mode: $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
+    write-host "By JuiceBox`n`n----------------------------------------------------`n"
+    write-host "* Metadata Match Mode:        $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
+    write-host "----------------------------------------------------`n"
     write-host "What would you like to do?"
     write-host " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
     write-host " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
-    write-host " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s) so I can share them with others"
+    write-host " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
     write-host " 4 - Change Settings"
 
     $userscanselection = 0;
