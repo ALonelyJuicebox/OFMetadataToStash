@@ -1,32 +1,24 @@
-# WARNING: This script only works with Stash v16 and below. Updates forthcoming.
-
 # OnlyFans Metadata to Stash Database Powershell Script
-<img src="/readme_assets/oldtonew.png" width=60% height=60%>
+This Powershell script can (batch) import OnlyFans metadata into a [Stash Database](https://github.com/stashapp/stash) from a OnlyFans metadata database scraped using [DIGITALCRIMINALS's OnlyFans Scraper](https://github.com/DIGITALCRIMINALS/OnlyFans)
 
-Using the OnlyFans metadata database from DIGITALCRIMINALS's OnlyFans Download Scraper, this script imports metadata into your Stash DB such as:
-- Title information based on the Performer name
-- Performer URL
-- URL of the post itself
-- Performer authored text associated with a given video added to Stash Details field
-- Creation date of the post
-- (Image and Scene) Performer association
-- (Image and Scene) Studio association
+<img src="/readme_assets/mainmenu.png" width=50% height=50%><img src="/readme_assets/oldtonew.png" width=46% height=46%>
 
-To be clear, this script does _not_ download any metadata from any website. 
-If want all available metadata, you must already have this metadata file in your posession.
+### OnlyFans Metadata Database Sanitization: 
 
-This script can associate performer names/studio based on file paths as well (if you don't have a metadata database to use)
+- Want to exchange your metadata database with someone else but need a sanitized version?
+  This script can happily produce a database clone of your choosing with all filepaths/personal information completely redacted.
 
-### Additional Utilities: 
+### Additional Notes: 
 
-**OnlyFans Metadata Database Sanitizer** 
+- If you don't have a metadata database available to you, this script can still associate performer names based on your file system.
 
-- Want to exchange your metadatabase with someone else but need a santized version without any potentially identifiable/unrelated information in it?
-  The `OFMetadataDatabase_Sanitizer` script in the Utilities folder will happily produce a clone of the database of your choosing with filepaths/any information not relevant purely to tagging completely redacted.
+- To be crystal clear, this script **does _not_ access the internet, download, or scrape any metadata from any website**. <br>
+If you want all available metadata for a given performer, you **must** already have this metadata file in your posession.
+
 
 # Requirements
-  - Fully tested on Stash v0.11 using DC OnlyFans Script v7.6.1 on the following operating systems
-    -  **Windows 10** with Windows Powershell (Built-in)
+  - Fully tested on Stash v0.18 using DC OnlyFans Script v7.6.1 on the following operating systems
+    -  **Windows 11** with Windows Powershell 7.3.1
     -  **Linux** using Powershell Core (both ARM and x86 releases tested)
     -  **macOS** using Powershell Core
   - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
@@ -37,5 +29,5 @@ This script can associate performer names/studio based on file paths as well (if
 # How to Run
 - If you aren't on Windows (or are on anything older than Windows 10), install Powershell Core, available for Linux and macOS!
 - Ensure you've installed PSSQLite as described in the section above
-- Download the latest release, making sure to edit `OFMetadataToStash_Config` to define where your OnlyFans content is, as well as the location of your Stash Database file
-- Open Powershell, and run the command `.\ofmetadatatostash.ps1`
+- Download the latest release of this script
+- Open Powershell in the directory of this script and run the command `.\ofmetadatatostash.ps1` to be guided through the short setup configuration wizard
