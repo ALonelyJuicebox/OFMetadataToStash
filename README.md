@@ -29,5 +29,5 @@ If you want all available metadata for a given performer, you **must** already h
 # How to Run
 - If you aren't on Windows (or are on anything older than Windows 10), install Powershell Core, available for Linux and macOS!
 - Ensure you've installed PSSQLite as described in the section above
-- Download the latest release of this script
+- Download the latest release zip of this script. You need the whole thing!
 - Open Powershell in the directory of this script and run the command `.\ofmetadatatostash.ps1` to be guided through the short setup configuration wizard
