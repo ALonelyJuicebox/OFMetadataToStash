@@ -58,7 +58,7 @@ REQUIREMENTS
     write-host "--------------------------`n"
     write-host "(2 of 3) Define the path to your OnlyFans content`n"
     write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are `n      located under <performername>"$directorydelimiter"metadata"$directorydelimiter
-    write-host "    * You have the option of linking directly to the 'user_data.db' file `n      or you can link to the top level OnlyFans folder of several metadata databases."
+    write-host "    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
     write-host "    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
     if ($null -ne $PathToOnlyFansContent){
         #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
@@ -701,7 +701,7 @@ else {
             write-host "`n- Missing Files -" -ForegroundColor Cyan
             write-host "There is available metadata for $nummissingfiles files in your OnlyFans Database that cannot be found in your Stash Database."
             write-host "    - Be sure to review the MissingFiles log."
-            write-host "    - There's a good chance you have deleted these files from your hard drive and may need to redownload"
+            write-host "    - There's a good chance you may need to rescan your OnlyFans folder in Stash and/or redownload those files"
         }
 
         write-host "`n****** Import Complete ******"-ForegroundColor Cyan
