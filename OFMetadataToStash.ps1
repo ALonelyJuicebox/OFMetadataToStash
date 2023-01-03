@@ -573,7 +573,7 @@ else {
                         $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path ='"+$OFDBdirectoryForQuery+"' AND files.basename ='$OFDBfilenameForQuery'"
                     }
                     
-                    $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                    $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
            
                     #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
                     if ($null -eq $StashDB_QueryResult){
@@ -613,6 +613,7 @@ else {
                             }
 
                             $ExtendedStashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+
                             #If we have a match, substitute it in and lets get that metadata into the Stash DB
                             if($ExtendedStashDB_QueryResult){
                                 $StashDB_QueryResult = $ExtendedStashDB_QueryResult
@@ -630,7 +631,7 @@ else {
                         #Let's check to see if this is a file that already has metadata.
                         #For Videos, we check the title and the details
                         #For Images, we only check the title (for now)
-                        #If any metadata is missing, we don't both with updating a specific column, we just update the entire row
+                        #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
 
                         if ($mediatype -eq "video"){
                             $filewasmodified = $false
