@@ -1,4 +1,4 @@
-**0.4 Release (1/3/2022)**
+**0.4 Release (1/3/2023)**
 -  **Feature** - Now supports the new Stash 0.18 schema which contains significant upgrades to how files are handled in Stash (phew!)
 -  **Feature** - Script now helps you build out the config file, no need to edit the config file manually unless you want to.
 -  **Feature** - Script will now tell you if your Stash database is compatible, with verbose user feedback
