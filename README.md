@@ -30,5 +30,5 @@ If you want all available metadata for a given performer, you **must** already h
 - For Windows users, [upgrade to Powershell 7](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.3#installing-the-msi-package). The version of Powershell that comes with Windows may not be compatible with this script.
 - If you aren't on Windows, you can install Powershell 7 on both [Linux](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-linux?view=powershell-7.3) and [macOS](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-macos?view=powershell-7.3)!
 - Ensure you've installed PSSQLite as described in the section above
-- Download the latest release zip of this script. You need the whole thing!
+- Download the latest [release zip](https://github.com/ALonelyJuicebox/OFMetadataToStash/releases) and extract it.
 - Open Powershell in the directory of this script and run the command `.\ofmetadatatostash.ps1` to be guided through the short setup configuration wizard
