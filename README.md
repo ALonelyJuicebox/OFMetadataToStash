@@ -19,8 +19,8 @@ If you want all available metadata for a given performer, you **must** already h
 # Requirements
   - Fully tested on Stash v0.18 using DC OnlyFans Script v7.6.1 on the following operating systems
     -  **Windows 11** with Windows Powershell 7.3.1
-    -  **Linux** using Powershell Core (both ARM and x86 releases tested)
-    -  **macOS** using Powershell Core
+    -  **Linux** using Powershell 7
+    -  **macOS** using Powershell 7
   - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
     * From the respository linked above, download a zip of the PSSQlite folder. Extract it wherever you like.
     * In the folder you extracted PSSQLite to, open a Powershell prompt (in Administrative mode) in that directory
