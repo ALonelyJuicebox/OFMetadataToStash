@@ -729,12 +729,26 @@ else {
 
 ###Code for the "No Metadata Database" feature
     elseif($userscanselection -eq 2){
-
-        write-host "`n- Quick Tips - " -ForegroundColor Cyan
+        write-host "`n- Overview - " -ForegroundColor Cyan
         write-host "    - This script will try and determine performer names for discovered files based on file path."
         write-host "    - Files that already have metadata in Stash will be ignored."
-        write-host "    - Please be sure to NOT scan folders that do not contain OnlyFans content."
-        write-host "    - This feature will likely not work well for Docker users due to path mismatches!"
+        write-host "    - You can point this script at your top level 'OnlyFans' folder containing several performers."
+        write-host "      That said, please be extra sure to NOT scan folders that do not contain OnlyFans content. "
+        write-host "`n- Choose a Scan Mode - " -ForegroundColor Cyan
+        write-host "1 - I am hosting Stash on this computer. [Default]"
+        write-host "2 - I am hosting Stash remotely on a different computer/using Docker"
+
+        $UserIsUsingRemoteStashSelection = 0;
+        do {
+            $UserIsUsingRemoteStashSelection = read-host "`nEnter selection"
+        }
+        while (($UserIsUsingRemoteStashSelection -notmatch "[1-2]"))
+
+        if($UserIsUsingRemoteStashSelection -eq 2){
+            write-host "`n- Additional Note - " -ForegroundColor Cyan
+            write-host "     - As you are hosting Stash elsewhere, this script will match based on filename rather than a file's full filepath"
+            write-host "       Please ensure your filenames are unique. (Ex. 0ergergfdser_source.mp4)"
+        }
 
         #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
         $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
@@ -873,17 +887,28 @@ else {
                 $performername = $patharray[$patharrayposition-1] 
             }
 
-            #Looking in the stash DB for the current filename we're parsing
-            if($mediatype -eq "image"){
+            #Looking in the stash DB for the current filename we're parsing (first two conditions are for local stash, second two are for remote stash)
+            if(($mediatype -eq "image") -and ($UserIsUsingRemoteStashSelection -eq 1)){
                 $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title, images.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
                 $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
                 $mediaid = $StashDBSceneQueryResult.images_id
             }
-            else {
+            elseif(($mediatype -eq "video") -and ($UserIsUsingRemoteStashSelection -eq 1)){ 
                 $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
                 $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
                 $mediaid = $StashDBSceneQueryResult.scenes_id
             }
+            if(($mediatype -eq "image") -and ($UserIsUsingRemoteStashSelection -eq 2)){
+                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title, images.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE files.basename ='"+$OFmediaFilename+"'"
+                $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                $mediaid = $StashDBSceneQueryResult.images_id
+            }
+            else{
+                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE files.basename ='"+$OFmediaFilename+"'"
+                $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+                $mediaid = $StashDBSceneQueryResult.scenes_id
+            }
+            
 
             #If Stash has this file, we can work with it.
             if ($StashDBSceneQueryResult){
@@ -993,24 +1018,33 @@ else {
                 
             }
         }
-        write-host "`n****** Import Complete ******"-ForegroundColor Cyan
-        write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
 
-        #Some quick date arithmetic to calculate elapsed time
-        $scriptEndTime = Get-Date
-        $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
-        if($scriptduration -ge 60){
-            [int]$Minutes = $scriptduration / 60
-            [int]$seconds = $scriptduration % 60
-            if ($minutes -gt 1){
-                write-host "- This script took $minutes minutes and $seconds seconds to execute"
+        if(($numModified -eq 0) -and ($numUnmodified -eq 0)){
+            write-host "...Complete." -ForegroundColor Cyan
+            write-host "This script has finished parsing the requested directory but no files were found in your Stash that match the files on your filesystem."
+            write-host "Your Stash database was not modified."
+            write-host "Try running this mode again, but with the 'Stash is hosted remotely' option!"
+        }
+        else {
+            write-host "`n****** Import Complete ******"-ForegroundColor Cyan
+            write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
+    
+            #Some quick date arithmetic to calculate elapsed time
+            $scriptEndTime = Get-Date
+            $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
+            if($scriptduration -ge 60){
+                [int]$Minutes = $scriptduration / 60
+                [int]$seconds = $scriptduration % 60
+                if ($minutes -gt 1){
+                    write-host "- This script took $minutes minutes and $seconds seconds to execute"
+                }
+                else{
+                    write-host "- This script took $minutes minute and $seconds seconds to execute"
+                }
             }
             else{
-                write-host "- This script took $minutes minute and $seconds seconds to execute"
+                write-host "- This script took $scriptduration seconds to execute"
             }
-        }
-        else{
-            write-host "- This script took $scriptduration seconds to execute"
         }
     }
 
