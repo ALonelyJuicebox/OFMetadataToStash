@@ -479,7 +479,7 @@ else {
                 }
                 else{
                     #No luck using the name to track down the performer ID, let's try the alias
-                    $Query = "SELECT id FROM performers WHERE aliases LIKE '%"+$performername+"%'"
+                    $Query = "SELECT performer_id FROM performer_aliases WHERE alias LIKE '%"+$performername+"%'"
                     $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                     
                     if($StashDB_PerformerQueryResult){
@@ -487,19 +487,11 @@ else {
                     }
                     #Otherwise both options failed so let's create the performer
                     else{   
-                        #Stash's DB requires an MD5 hash of the name of the performer for performer creation
-                        $stringAsStream = [System.IO.MemoryStream]::new()
-                        $writer = [System.IO.StreamWriter]::new($stringAsStream)
-                        $writer.write($performername)
-                        $writer.Flush()
-                        $stringAsStream.Position = 0
-                        $performernamemd5 = Get-FileHash -Algorithm md5 -InputStream $stringAsStream | Select-Object Hash
-
                         #Creating a performer also requires a updated_at/created_at timestamp
                         $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
 
                         #Creating the performer in Stash's db
-                        $Query = "INSERT INTO performers (checksum, name, url, created_at, updated_at) VALUES ('"+$performernamemd5.hash+"', '"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
+                        $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
                         Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                         write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
 
@@ -920,25 +912,17 @@ else {
 
                     #If the performer doesn't exist, try looking at aliases
                     if(!$StashDB_PerformerQueryResult){
-                        $Query = "SELECT id FROM performers WHERE aliases LIKE '%"+$performername+"%'"
+                        $Query = "SELECT performer_id FROM performer_aliases WHERE alias LIKE '%"+$performername+"%'"
                         $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                         
                         #This performer definitely does not exist so create one
                         if(!$StashDB_PerformerQueryResult){
 
-                            #Stash's DB requires an MD5 hash of the name of the performer for performer creation so...here's that
-                            $stringAsStream = [System.IO.MemoryStream]::new()
-                            $writer = [System.IO.StreamWriter]::new($stringAsStream)
-                            $writer.write($performername)
-                            $writer.Flush()
-                            $stringAsStream.Position = 0
-                            $performernamemd5 = Get-FileHash -Algorithm md5 -InputStream $stringAsStream | Select-Object Hash
-
                             #Creating a performer also requires a updated_at/created_at timestamp
                             $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
 
                             #Creating the performer in Stash's db
-                            $Query = "INSERT INTO performers (checksum, name, url, created_at, updated_at) VALUES ('"+$performernamemd5.hash+"', '"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"');"
+                            $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"');"
                             Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                             write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
                         }
