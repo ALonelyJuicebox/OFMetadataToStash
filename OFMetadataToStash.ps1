@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata to Stash Database PoSH Script 0.4---
+---OnlyFans Metadata to Stash Database PoSH Script 0.5---
 
 AUTHOR
     JuiceBox
@@ -622,7 +622,7 @@ else {
 
                         #Let's check to see if this is a file that already has metadata.
                         #For Videos, we check the title and the details
-                        #For Images, we only check the title (for now)
+                        #For Images, we check title, URL and date (still waiting for support for details by the Stash team...)
                         #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
 
                         if ($mediatype -eq "video"){
@@ -660,8 +660,8 @@ else {
                             $filewasmodified = $false
 
                             #Updating image metadata if necessary
-                            if ($StashDB_QueryResult.images_title -ne $proposedtitle){
-                                $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult.images_id+"'"
+                            if (($StashDB_QueryResult.images_title -ne $proposedtitle)){
+                                $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"', url='"+$linktoperformerpage+"', date='"+$creationdatefromOF+"', WHERE id='"+$StashDB_QueryResult.images_id+"'"
                                 Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                                 $filewasmodified = $true
                             }
