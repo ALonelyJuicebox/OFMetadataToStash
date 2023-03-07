@@ -252,11 +252,13 @@ else{
                             $TableWasModified = $true
                         }
                     } 
+                    #This is basically a list of all the tables we actually use in this script. If there's anything flagged, we need to tell the user
                     if ($TableWasModified -eq $true){
                         switch($Stash_Table_Name){
                             "scenes" {$IncompatibleDB = $True;write-host "- Hmm...The 'Scenes' table has been modified in this new db schema"}
                             "images"{$IncompatibleDB = $True;write-host "- Hmm...The 'Images' table has been modified in this new db schema"}
                             "performers"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performers' table has been modified in this new db schema"}
+                            "performer_aliases"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performer_Aliases' table has been modified in this new db schema"}
                             "studios" {$IncompatibleDB = $True;write-host "- Hmm...The 'Studios' table has been modified in this new db schema"}
                             "folders" {$IncompatibleDB = $True;write-host "- Hmm...The 'Folders' table has been modified in this new db schema"}
                             "files" {$IncompatibleDB = $True;write-host "- Hmm...The 'Files' table has been modified in this new db schema"}
@@ -622,7 +624,7 @@ else {
 
                         #Let's check to see if this is a file that already has metadata.
                         #For Videos, we check the title and the details
-                        #For Images, we check title, URL and date (still waiting for support for details by the Stash team...)
+                        #For Images, we only check title (for now)
                         #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
 
                         if ($mediatype -eq "video"){
