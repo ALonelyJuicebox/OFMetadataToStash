@@ -526,7 +526,7 @@ else {
                     $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
          
 
-                    #Note that the DigitalCriminals OF downloader quantifies gifs as videos for some reason
+                    #Note that the OF downloader quantifies gifs as videos for some reason
                     #Since Stash doesn't (and rightfully so), we need to account for this
                     if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
                         $mediatype = "video"

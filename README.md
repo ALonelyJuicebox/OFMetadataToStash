@@ -1,5 +1,5 @@
 # OnlyFans Metadata to Stash Database Powershell Script
-This Powershell script can (batch) import OnlyFans metadata into a [Stash Database](https://github.com/stashapp/stash) from a OnlyFans metadata database scraped using [DIGITALCRIMINALS's OnlyFans Scraper](https://github.com/DIGITALCRIMINALS/OnlyFans)
+This Powershell script can (batch) import OnlyFans metadata into a [Stash Database](https://github.com/stashapp/stash) from a OnlyFans metadata database scraped using [DIGITALCRIMINALS's OnlyFans Scraper](https://github.com/DIGITALCRIMINALS/OnlyFans) or other compatible scraper.
 
 <img src="/readme_assets/mainmenu.png" width=50% height=50%><img src="/readme_assets/oldtonew.png" width=46% height=46%>
 
@@ -17,7 +17,7 @@ If you want all available metadata for a given performer, you **must** already h
 
 
 # Requirements
-  - Fully tested on Stash v0.18 using DC OnlyFans Script v7.6.1 on the following operating systems
+  - Fully tested on Stash v0.18 using DC OnlyFans Script v7.6.1 (and other scrapers using that schema) on the following operating systems
     -  **Windows 11** with Windows Powershell 7.3.1
     -  **Linux** using Powershell Core (both ARM and x86 releases tested)
     -  **macOS** using Powershell Core
