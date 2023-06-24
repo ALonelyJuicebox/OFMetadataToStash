@@ -272,7 +272,7 @@ else{
             
             if($IncompatibleDB -eq $true){
                 
-                write-host "`nFor the reason(s) mentioned above, your database may be incompatible with this script" -ForegroundColor red
+                write-host "`nFor the reason(s) mentioned above, your Stash database may be incompatible with this script" -ForegroundColor red
                 write-host "Running this script may change your database in unexpected, untested ways. "
 
                 write-host "`n1 - Press [Enter] to exit."
@@ -379,11 +379,26 @@ else {
         
         #For the discovery of a single database file
         if ($collectionOfDatabaseFiles.count -eq 1){
-            $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
-            if ($performername -eq "metadata"){
-                $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+
+            #More modern OF DB schemas include the name of the performer in the profile table. If this table does not exist we will have to derive the performer name from the filepath, assuming the db is in a /metadata/ folder.
+            $Query = "PRAGMA table_info(medias)"
+            $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $collectionOfDatabaseFiles[0].FullName
+            #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+            $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+
+            $performername = $null
+            if ($OFDBColumnsToCheck -match "profiles"){
+                $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                $performername =  Invoke-SqliteQuery -Query $Query -DataSource $collectionOfDatabaseFiles[0].FullName
             }
-            
+
+            #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+            if ($null -eq $performername){
+                $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
+                if ($performername -eq "metadata"){
+                    $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+                }
+            }
             write-host "Discovered a metadata database for '$performername' "
         }
 
@@ -395,12 +410,30 @@ else {
 
             $i=1 # just used cosmetically
             Foreach ($OFDBdatabase in $collectionOfDatabaseFiles){
-                $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
+
+                #Getting the performer name from the profiles table (if it exists)
+                $Query = "PRAGMA table_info(medias)"
+                $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDBdatabase.FullName
+
+                #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+                $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+                $performername = $null
+                if ($OFDBColumnsToCheck -match "profiles"){
+                    $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                    $performername =  Invoke-SqliteQuery -Query $Query -DataSource $collectionOfDatabaseFiles[0].FullName
                 }
+
+                #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+                if ($null -eq $performername){
+                    $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
+                    if ($performername -eq "metadata"){
+                        $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+                    }
+                }
+              
                 write-host "$i - $performername"
                 $i++
+
             }
             $selectednumber = read-host "`nWhich performer would you like to select [Enter a number]"
 
@@ -464,231 +497,265 @@ else {
             }
             
             foreach ($currentdatabase in $collectionOfDatabaseFiles) {
-
                 #Gotta reparse the performer name as we may be parsing through a full collection of performers. 
                 #Otherwise you'll end up with a whole bunch of performers having the same name
-                $performername = $currentdatabase.fullname | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $currentdatabase.fullname | split-path | split-path | split-path -leaf
+                #This is also where we will make the determination if this onlyfans database has the right tables to be used here
+                #First step, let's check to ensure this OF db is valid for use
+                $Query = "PRAGMA table_info(medias)"
+                $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $currentdatabase.FullName
+
+                #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+                #Then we use a match condition and a whole lot of or statements to determine if this db has all the right columns this script needs.
+                $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+                if (($OFDBColumnsToCheck -notmatch "media_id") -or ($OFDBColumnsToCheck -notmatch "post_id") -or ($OFDBColumnsToCheck -notmatch "directory") -or ($OFDBColumnsToCheck -notmatch "filename") -or ($OFDBColumnsToCheck -notmatch "size") -or ($OFDBColumnsToCheck -notmatch "media_type") -or ($OFDBColumnsToCheck -notmatch "created_at")){
+                    $SchemaIsValid = $false
                 }
-                write-host "`nParsing media for $performername" -ForegroundColor Cyan
-            
-                #Conditional tree for finding the performer ID using either the name or the alias (or creating the performer if neither option work out)
-                $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                if($StashDB_PerformerQueryResult){
-                    $PerformerID = $StashDB_PerformerQueryResult.id
+                else {
+                    $SchemaIsValid = $true
+                }
+
+                #If the OF metadata db is no good, tell the user and skip the rest of this very massive conditional block (I need to refactor this)
+                if ((!$SchemaIsValid)){
+                    write-host "Error: The following OnlyFans metadata database doesn't contain the metadata in a format that this script expects." -ForegroundColor Red
+                    write-host "This can occur if you've scraped OnlyFans using an unsupported tool. " -ForegroundColor Red
+                    write-host $collectionOfDatabaseFiles[0].FullName
+                    read-host "Press [Enter] to continue"
+                    
                 }
                 else{
-                    #No luck using the name to track down the performer ID, let's try the alias
-                    $Query = "SELECT performer_id FROM performer_aliases WHERE alias LIKE '%"+$performername+"%'"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                    #More modern OF DB schemas include the name of the performer in the profile table. If this table does not exist we will have to derive the performer name from the filepath, assuming the db is in a /metadata/ folder.
+                    $performername = $null
+                    if ($OFDBColumnsToCheck -match "profiles"){
+                        $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                        $performername =  Invoke-SqliteQuery -Query $Query -DataSource $collectionOfDatabaseFiles[0].FullName
+                    }
+
+                    #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+                    if ($null -eq $performername){
+                        $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
+                        if ($performername -eq "metadata"){
+                            $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+                        }
+                    }
+                    write-host "`nParsing media for $performername" -ForegroundColor Cyan
                     
+                    #Conditional tree for finding the performer ID using either the name or the alias (or creating the performer if neither option work out)
+                    $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
+                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                     if($StashDB_PerformerQueryResult){
                         $PerformerID = $StashDB_PerformerQueryResult.id
                     }
-                    #Otherwise both options failed so let's create the performer
-                    else{   
-                        #Creating a performer also requires a updated_at/created_at timestamp
-                        $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
-
-                        #Creating the performer in Stash's db
-                        $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
-                        Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                        write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
-
-                        $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
+                    else{
+                        #No luck using the name to track down the performer ID, let's try the alias
+                        $Query = "SELECT performer_id FROM performer_aliases WHERE alias LIKE '%"+$performername+"%'"
                         $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                        $PerformerID = $StashDB_PerformerQueryResult.id
-                    }       
-                }
-                
-                #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
-                $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
-                $OF_DBpath = $currentdatabase.fullname 
-                $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
-                foreach ($OFDBMedia in $OFDBQueryResult){
-
-                    #Generating the URL for this post
-                    $linktoperformerpage = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
-                    
-                    #Reformatting the date to something stash appropriate
-                    $creationdatefromOF = $OFDBMedia.created_at
-                    $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
-                    
-                    $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
-                    $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
-                    $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
-                    $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
-
-                    #Storing separate variants of these variables with apostrophy sanitization so they don't ruin our SQL queries
-                    $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
-                    $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
-         
-
-                    #Note that the OF downloader quantifies gifs as videos for some reason
-                    #Since Stash doesn't (and rightfully so), we need to account for this
-                    if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
-                        $mediatype = "video"
-                    }
-                    #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
-                    elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
-                        $mediatype = "image"
-                    }
-
-
-                    #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
-                    #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
-                    if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%'  AND size ="+$OFDBfilesize
-                    }
-
-                    #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
-                    elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%'"
-                    }
-                    #Low specificity, search for videos based on filesize only
-                    elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size ="+$OFDBfilesize
-                    }
-
-                    #Low specificity, search for images based on filesize only
-                    elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize
-                    }
-
-                    #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                    elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFDBdirectoryForQuery+"' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                    }
-
-                    #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                    else{
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path ='"+$OFDBdirectoryForQuery+"' AND files.basename ='$OFDBfilenameForQuery'"
-                    }
-                    
-                    $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-           
-                    #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
-                    if ($null -eq $StashDB_QueryResult){
-                         if (Test-Path $OFDBFullFilePath){
-                            write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                        }
-                        #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
-                        else{
-                            write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                            Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
-                            $nummissingfiles++
-                        }
-                    }
-
-                    #Otherwise we have found a match! let's process each matching result and add the metadata we've found
-                    else{
-
-                        #Before processing, and for the sake of accuracy, if there are multiple filesize matches (aka modes low and normal), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
-                        if ($StashDB_QueryResult.length -gt 0){
-                            #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                            if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                            elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize 
-                            }
-                            #Low specificity, search for videos based on filesize only (and filename in this instance)
-                            elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            #Low specificity, search for images based on filesize only (and filename in this instance)
-                            elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            $ExtendedStashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-
-                            #If we have a match, substitute it in and lets get that metadata into the Stash DB
-                            if($ExtendedStashDB_QueryResult){
-                                $StashDB_QueryResult = $ExtendedStashDB_QueryResult
-                            } 
-                        }
-                     
-                        #Creating the title we want for the media
-                        $proposedtitle = "$performername - $creationdatefromOF"
                         
-                        #Sanitizing the text for apostrophes so they don't ruin our SQL query
-                        $detailsToAddToStash = $OFDBMedia.text
-                        $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
-                        $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
-
-                        #Let's check to see if this is a file that already has metadata.
-                        #For Videos, we check the title and the details
-                        #For Images, we only check title (for now)
-                        #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
-
-                        if ($mediatype -eq "video"){
-                            $filewasmodified = $false
-
-                            #Updating scene metadata if necessary
-                            if (($StashDB_QueryResult.scenes_title -ne $proposedtitle) -or ($StashDB_QueryResult.scenes_details -ne $OFDBMedia.text)){
-                                $Query = "UPDATE scenes SET title='"+$proposedtitle+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult.scenes_id+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-                            
-                            #Updating Stash with the performer for this media if one is not already associated
-                            $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDB_QueryResult.scenes_id
-                            $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            if(!$StashDB_PerformerUpdateResult){
-                                $Query = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerid+","+$StashDB_QueryResult.scenes_id+")"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-
-                            #Providing user feedback and adding to the modified counter if necessary
-                            if ($filewasmodified){
-                                write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
-                                $numModified++  
-                            }
-                            else{
-                                write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                                $numUnmodified++
-                            }
-
-                            
+                        if($StashDB_PerformerQueryResult){
+                            $PerformerID = $StashDB_PerformerQueryResult.id
                         }
-                        else{ #For images
-                            $filewasmodified = $false
+                        #Otherwise both options failed so let's create the performer
+                        else{   
+                            #Creating a performer also requires a updated_at/created_at timestamp
+                            $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
 
-                            #Updating image metadata if necessary
-                            if (($StashDB_QueryResult.images_title -ne $proposedtitle)){
-                                $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"', url='"+$linktoperformerpage+"', date='"+$creationdatefromOF+"', WHERE id='"+$StashDB_QueryResult.images_id+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
+                            #Creating the performer in Stash's db
+                            $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
+                            Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                            write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
+
+                            $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
+                            $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                            $PerformerID = $StashDB_PerformerQueryResult.id
+                        }       
+                    }
+                        
+                    #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
+                    $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
+                    $OF_DBpath = $currentdatabase.fullname 
+                    $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
+                    foreach ($OFDBMedia in $OFDBQueryResult){
+
+                        #Generating the URL for this post
+                        $linktoperformerpage = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
+                        
+                        #Reformatting the date to something stash appropriate
+                        $creationdatefromOF = $OFDBMedia.created_at
+                        $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
+                        
+                        $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
+                        $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
+                        $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
+                        $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
+
+                        #Storing separate variants of these variables with apostrophy sanitization so they don't ruin our SQL queries
+                        $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
+                        $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
+            
+
+                        #Note that the OF downloader quantifies gifs as videos for some reason
+                        #Since Stash doesn't (and rightfully so), we need to account for this
+                        if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
+                            $mediatype = "video"
+                        }
+                        #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
+                        elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
+                            $mediatype = "image"
+                        }
+
+
+                        #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
+                        #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
+                        if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%'  AND size ="+$OFDBfilesize
+                        }
+
+                        #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
+                        elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%'"
+                        }
+                        #Low specificity, search for videos based on filesize only
+                        elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size ="+$OFDBfilesize
+                        }
+
+                        #Low specificity, search for images based on filesize only
+                        elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize
+                        }
+
+                        #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                        elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFDBdirectoryForQuery+"' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
+                        }
+
+                        #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                        else{
+                            $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path ='"+$OFDBdirectoryForQuery+"' AND files.basename ='$OFDBfilenameForQuery'"
+                        }
+                        
+                        $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+            
+                        #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
+                        if ($null -eq $StashDB_QueryResult){
+                            if (Test-Path $OFDBFullFilePath){
+                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                             }
+                            #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
+                            else{
+                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                                Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
+                                $nummissingfiles++
+                            }
+                        }
 
-                            #Updating Stash with the performer for this media if one is not already associated
-                            $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult.images_id
-                            $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            if(!$StashDB_PerformerUpdateResult){
-                                $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult.images_id+")"
+                        #Otherwise we have found a match! let's process each matching result and add the metadata we've found
+                        else{
+
+                            #Before processing, and for the sake of accuracy, if there are multiple filesize matches (aka modes low and normal), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
+                            if ($StashDB_QueryResult.length -gt 0){
+                                #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                                if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
+                                    $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
+                                }
+
+                                #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                                elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
+                                    $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize 
+                                }
+                                #Low specificity, search for videos based on filesize only (and filename in this instance)
+                                elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
+                                    $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
+                                }
+
+                                #Low specificity, search for images based on filesize only (and filename in this instance)
+                                elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
+                                    $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
+                                }
+
+                                $ExtendedStashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
+
+                                #If we have a match, substitute it in and lets get that metadata into the Stash DB
+                                if($ExtendedStashDB_QueryResult){
+                                    $StashDB_QueryResult = $ExtendedStashDB_QueryResult
+                                } 
+                            }
+                        
+                            #Creating the title we want for the media
+                            $proposedtitle = "$performername - $creationdatefromOF"
+                            
+                            #Sanitizing the text for apostrophes so they don't ruin our SQL query
+                            $detailsToAddToStash = $OFDBMedia.text
+                            $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                            $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
+
+                            #Let's check to see if this is a file that already has metadata.
+                            #For Videos, we check the title and the details
+                            #For Images, we only check title (for now)
+                            #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
+
+                            if ($mediatype -eq "video"){
+                                $filewasmodified = $false
+
+                                #Updating scene metadata if necessary
+                                if (($StashDB_QueryResult.scenes_title -ne $proposedtitle) -or ($StashDB_QueryResult.scenes_details -ne $OFDBMedia.text)){
+                                    $Query = "UPDATE scenes SET title='"+$proposedtitle+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult.scenes_id+"'"
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
                                 
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
+                                #Updating Stash with the performer for this media if one is not already associated
+                                $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDB_QueryResult.scenes_id
+                                $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                if(!$StashDB_PerformerUpdateResult){
+                                    $Query = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerid+","+$StashDB_QueryResult.scenes_id+")"
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
 
-                            #Providing user feedback and adding to the modified counter if necessary
-                            if ($filewasmodified){
-                                write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
-                                $numModified++  
+                                #Providing user feedback and adding to the modified counter if necessary
+                                if ($filewasmodified){
+                                    write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                    $numModified++  
+                                }
+                                else{
+                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    $numUnmodified++
+                                }
+
+                                
                             }
-                            else{
-                                write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                                $numUnmodified++
+                            else{ #For images
+                                $filewasmodified = $false
+
+                                #Updating image metadata if necessary
+                                if (($StashDB_QueryResult.images_title -ne $proposedtitle)){
+                                    $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"', url='"+$linktoperformerpage+"', date='"+$creationdatefromOF+"', WHERE id='"+$StashDB_QueryResult.images_id+"'"
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
+
+                                #Updating Stash with the performer for this media if one is not already associated
+                                $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult.images_id
+                                $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                if(!$StashDB_PerformerUpdateResult){
+                                    $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult.images_id+")"
+                                    
+                                    Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                    $filewasmodified = $true
+                                }
+
+                                #Providing user feedback and adding to the modified counter if necessary
+                                if ($filewasmodified){
+                                    write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                    $numModified++  
+                                }
+                                else{
+                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    $numUnmodified++
+                                }
                             }
-                        }
-                    } 
+                        } 
+                    }   
                 }
             }
         }
