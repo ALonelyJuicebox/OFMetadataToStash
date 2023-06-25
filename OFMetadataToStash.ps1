@@ -372,13 +372,14 @@ else {
     write-output " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
     write-output " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
     write-output " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
-    write-output " 4 - Change Settings"
+    write-output " 4 - Import Performer Image(s) to Stash Database"
+    write-output " 5 - Change Settings"
 
     $userscanselection = 0;
     do {
         $userscanselection = read-host "`nEnter selection"
     }
-    while (($userscanselection -notmatch "[1-4]"))
+    while (($userscanselection -notmatch "[1-5]"))
 
 
 
@@ -1149,6 +1150,10 @@ else {
     elseif($userscanselection -eq 3){
         $pathtosanitizerscript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_Sanitizer.ps1"
         invoke-expression $pathtosanitizerscript
+    }
+    elseif($userscanselection -eq 4){
+        $pathtoperformerpicimporterscript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_PerformerPicImporter.ps1"
+        invoke-expression $pathtoperformerpicimporterscript
     }
     else{
         #User has requested to be sent to the configuration wizard
