@@ -7,10 +7,9 @@ URL
     https://github.com/ALonelyJuicebox/OFMetadataToStash
 
 DESCRIPTION
-    Using the metadata database from DC's script, imports metadata such as the URL, post associated text, and creation date into your stash DB
+    Using the metadata database from an OnlyFans scraper script, imports metadata such as the URL, post associated text, and creation date into your stash DB
 
 REQUIREMENTS
-    - Metadata database must be from DC's script
     - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
        Download a zip of the PSSQlite folder in that repo, extract it, run an Admin window of Powershell
        in that directory then run 'install-module pssqlite' followed by the command 'import-module pssqlite'
@@ -294,7 +293,7 @@ else{
             }
         }
         elseif ($StashDB_SchemaVersion -lt $KnownSchemaVersion) {
-            write-host "Your database is unfortunately a bit outdated!" -ForegroundColor red
+            write-host "Your Stash database is unfortunately a bit outdated!" -ForegroundColor red
             write-host "Please upgrade your Stash instance to the latest version, then re-run this script."
 
             write-host "`n1 - Press [Enter] to exit."
