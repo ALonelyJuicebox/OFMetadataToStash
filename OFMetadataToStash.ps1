@@ -20,11 +20,11 @@ REQUIREMENTS
 #Set-Config is a wizard that walks the user through the configuration settings
  function Set-Config{
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(1 of 3) Define the path to  your Stash Database file"
-    write-host "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named"$directorydelimiter"db"$directorydelimiter" with a filename of 'stash-go.sqlite'`n"
+    write-output "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(1 of 3) Define the path to  your Stash Database file"
+    write-output "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named"$directorydelimiter"db"$directorydelimiter" with a filename of 'stash-go.sqlite'`n"
     
     if ($null -ne $PathToStashDatabase){
         #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
@@ -33,7 +33,7 @@ REQUIREMENTS
     do{
         #Providing some user feedback if we tested the path and it came back as invalid
         if($null -ne $PathToStashDatabase){
-            write-host "Oops. Invalid filepath"
+            write-output "Oops. Invalid filepath"
         }
         if($IsWindows){
             read-host "Press [Enter] to select your Stash Database File"
@@ -52,13 +52,13 @@ REQUIREMENTS
     }
     while(!(test-path $PathToStashDatabase))
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(2 of 3) Define the path to your OnlyFans content`n"
-    write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are `n      located under <performername>"$directorydelimiter"metadata"$directorydelimiter
-    write-host "    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
-    write-host "    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
+    write-output "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(2 of 3) Define the path to your OnlyFans content`n"
+    write-output "    * OnlyFans metadata database files are named 'user_data.db' and they are `n      located under <performername>"$directorydelimiter"metadata"$directorydelimiter
+    write-output "    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
+    write-output "    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
     if ($null -ne $PathToOnlyFansContent){
         #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
         $PathToOnlyFansContent = $null
@@ -66,11 +66,11 @@ REQUIREMENTS
     do{
         #Providing some user feedback if we tested the path and it came back as invalid
         if($null -ne $PathToOnlyFansContent){
-            write-host "Oops. Invalid filepath"
+            write-output "Oops. Invalid filepath"
         }
         if($IsWindows){
-            write-host "Option 1: I want to point to a folder containing all my OnlyFans content and databases"
-            write-host "Option 2: I want to point to a single OnlyFans Metadata file (user_data.db)`n"
+            write-output "Option 1: I want to point to a folder containing all my OnlyFans content and databases"
+            write-output "Option 2: I want to point to a single OnlyFans Metadata file (user_data.db)`n"
 
             do {
                 $userselection = read-host "Enter your selection (1 or 2)"
@@ -99,16 +99,16 @@ REQUIREMENTS
     }
     while(!(test-path $PathToOnlyFansContent))
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(3 of 3) Define your Metadata Match Mode"
-    write-host "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
-    write-host "    * If you are an average user, just set this to 'Normal'"
-    write-host "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
-    write-host "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
-    write-host "Option 2: Low    - Will match based only on a matching Filesize"
-    write-host "Option 3: High   - Will match based on a matching path and a matching Filesize"
+    write-output "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(3 of 3) Define your Metadata Match Mode"
+    write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
+    write-output "    * If you are an average user, just set this to 'Normal'"
+    write-output "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
+    write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
+    write-output "Option 2: Low    - Will match based only on a matching Filesize"
+    write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
 
 
     $specificityselection = 0;
@@ -129,14 +129,14 @@ REQUIREMENTS
     }
 
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(3 of 3b) Review your settings`n"
+    write-output "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(3 of 3b) Review your settings`n"
 
-    write-host "Path to Stash Database:`n - $PathToStashDatabase`n"
-    write-host "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
-    write-host "Metadata Match Mode:`n - $SearchSpecificity`n"
+    write-output "Path to Stash Database:`n - $PathToStashDatabase`n"
+    write-output "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
+    write-output "Metadata Match Mode:`n - $SearchSpecificity`n"
 
     read-host "Press [Enter] to save this configuration"
 
@@ -150,7 +150,7 @@ REQUIREMENTS
     Add-Content -path $PathToConfigFile -value "## Search Specificity mode. (Normal | High | Low) ##"
     Add-Content -path $PathToConfigFile -value $SearchSpecificity
 
-    write-host "...Done!`nRun this script again to apply the new settings"
+    write-output "...Done!`nRun this script again to apply the new settings"
     exit
  }
 
@@ -179,13 +179,13 @@ $SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
 $PathToMissingFilesLog = "."+$directorydelimiter+"OFMetadataToStash_MissingFiles.txt"
 $PathToStashExampleDB = "$directorydelimeter"+"utilities"+"$directorydelimiter"+"stash_example_db.sqlite" #We use this database for schema comparison
 if (!(test-path $PathToStashExampleDB)){
-    write-host "Error: Could not find '$PathToStashExampleDB'. Please redownload this script from Github." -ForegroundColor red
+    write-output "Error: Could not find '$PathToStashExampleDB'. Please redownload this script from Github." -ForegroundColor red
     read-host "Press [Enter] to exit"
     exit
 }
 
 clear-host
-write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
+write-output "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
 
 if (!(test-path $PathToStashDatabase)){
     read-host "Hmm...The defined path to your Stash Database file (Stash-go.sqlite) does not seem to exist at the location in your config file`n($PathToStashDatabase)`n`nPress [Enter] to run through the config wizard"
@@ -204,9 +204,9 @@ else{
     
     if (($StashDB_SchemaVersion -ne $KnownSchemaVersion) -or ($StashDB_SchemaVersion -notmatch '^\d+$')){
         if($StashDB_SchemaVersion -gt $KnownSchemaVersion){
-            write-host "`nYour Stash database has a newer database schema than expected!"
-            write-host "(Expected version $KnownSchemaVersion, your Stash database is running Stash schema version $StashDB_SchemaVersion)"
-            write-host "Checking for incompatibility...`n"
+            write-output "`nYour Stash database has a newer database schema than expected!"
+            write-output "(Expected version $KnownSchemaVersion, your Stash database is running Stash schema version $StashDB_SchemaVersion)"
+            write-output "Checking for incompatibility...`n"
             
             #Get all tables from the new database
             $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"
@@ -254,15 +254,15 @@ else{
                     #This is basically a list of all the tables we actually use in this script. If there's anything flagged, we need to tell the user
                     if ($TableWasModified -eq $true){
                         switch($Stash_Table_Name){
-                            "scenes" {$IncompatibleDB = $True;write-host "- Hmm...The 'Scenes' table has been modified in this new db schema"}
-                            "images"{$IncompatibleDB = $True;write-host "- Hmm...The 'Images' table has been modified in this new db schema"}
-                            "performers"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performers' table has been modified in this new db schema"}
-                            "performer_aliases"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performer_Aliases' table has been modified in this new db schema"}
-                            "studios" {$IncompatibleDB = $True;write-host "- Hmm...The 'Studios' table has been modified in this new db schema"}
-                            "folders" {$IncompatibleDB = $True;write-host "- Hmm...The 'Folders' table has been modified in this new db schema"}
-                            "files" {$IncompatibleDB = $True;write-host "- Hmm...The 'Files' table has been modified in this new db schema"}
-                            "performers_scenes"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_scenes' table has been modified in this new db schema"}
-                            "performers_images"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_images' table has been modified in this new db schema"}
+                            "scenes" {$IncompatibleDB = $True;write-output "- Hmm...The 'Scenes' table has been modified in this new db schema"}
+                            "images"{$IncompatibleDB = $True;write-output "- Hmm...The 'Images' table has been modified in this new db schema"}
+                            "performers"{$IncompatibleDB = $True;write-output "- Hmm...The 'Performers' table has been modified in this new db schema"}
+                            "performer_aliases"{$IncompatibleDB = $True;write-output "- Hmm...The 'Performer_Aliases' table has been modified in this new db schema"}
+                            "studios" {$IncompatibleDB = $True;write-output "- Hmm...The 'Studios' table has been modified in this new db schema"}
+                            "folders" {$IncompatibleDB = $True;write-output "- Hmm...The 'Folders' table has been modified in this new db schema"}
+                            "files" {$IncompatibleDB = $True;write-output "- Hmm...The 'Files' table has been modified in this new db schema"}
+                            "performers_scenes"{$IncompatibleDB = $True;write-output "- Hmm...The 'performers_scenes' table has been modified in this new db schema"}
+                            "performers_images"{$IncompatibleDB = $True;write-output "- Hmm...The 'performers_images' table has been modified in this new db schema"}
                         }
                     }
                 }
@@ -271,46 +271,46 @@ else{
             
             if($IncompatibleDB -eq $true){
                 
-                write-host "`nFor the reason(s) mentioned above, your Stash database may be incompatible with this script" -ForegroundColor red
-                write-host "Running this script may change your database in unexpected, untested ways. "
+                write-output "`nFor the reason(s) mentioned above, your Stash database may be incompatible with this script" -ForegroundColor red
+                write-output "Running this script may change your database in unexpected, untested ways. "
 
-                write-host "`n1 - Press [Enter] to exit."
-                write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
+                write-output "`n1 - Press [Enter] to exit."
+                write-output "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
 
                 $userinput = read-host "`nWhat would you like to do?"
                 if($userinput -notmatch "Never tell me the odds!"){
-                    write-host "Exiting..."
+                    write-output "Exiting..."
                     exit
                 }
                 #User wants to continue, so lets clear the host and make it look like we're starting fresh
                 clear-host
-                write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+                write-output "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
             }
             else{
-                write-host "`nNo incompatibilites detected!" -ForegroundColor green
-                write-host "While no incompatibilities were detected, please look for an`nupdated version of this script just to be safe."
+                write-output "`nNo incompatibilites detected!" -ForegroundColor green
+                write-output "While no incompatibilities were detected, please look for an`nupdated version of this script just to be safe."
                 read-host "`nPress [Enter] to continue"
             }
         }
         elseif ($StashDB_SchemaVersion -lt $KnownSchemaVersion) {
-            write-host "Your Stash database is unfortunately a bit outdated!" -ForegroundColor red
-            write-host "Please upgrade your Stash instance to the latest version, then re-run this script."
+            write-output "Your Stash database is unfortunately a bit outdated!" -ForegroundColor red
+            write-output "Please upgrade your Stash instance to the latest version, then re-run this script."
 
-            write-host "`n1 - Press [Enter] to exit."
-            write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
+            write-output "`n1 - Press [Enter] to exit."
+            write-output "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
             
 
             $userinput = read-host "`nWhat would you like to do?"
             if($userinput -notmatch "Never tell me the odds!"){
-             write-host "Exiting..."
+             write-output "Exiting..."
                 exit
             }
             #User wants to continue, so lets clear the host and make it look like we're starting fresh
             clear-host
-            write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
+            write-output "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
         }
         else {
-            write-host "Hmm... this Stash database is not of a schema that this script was expecting. " -ForegroundColor red
+            write-output "Hmm... this Stash database is not of a schema that this script was expecting. " -ForegroundColor red
             read-host "Press [Enter] to exit"
             exit
         }
@@ -331,14 +331,14 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     Set-Config
 }
 else {
-    write-host "By JuiceBox`n`n----------------------------------------------------`n"
-    write-host "* Metadata Match Mode:        $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
-    write-host "----------------------------------------------------`n"
-    write-host "What would you like to do?"
-    write-host " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
-    write-host " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
-    write-host " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
-    write-host " 4 - Change Settings"
+    write-output "By JuiceBox`n`n----------------------------------------------------`n"
+    write-output "* Metadata Match Mode:        $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
+    write-output "----------------------------------------------------`n"
+    write-output "What would you like to do?"
+    write-output " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
+    write-output " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
+    write-output " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
+    write-output " 4 - Change Settings"
 
     $userscanselection = 0;
     do {
@@ -354,7 +354,7 @@ else {
         #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
         $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
         if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
-            write-host "OK, no backup will be created." 
+            write-output "OK, no backup will be created." 
         }
         else{
             $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
@@ -368,10 +368,10 @@ else {
                 read-host "Unable to make a backup! Permissions error? Press [Enter] to exit"
                 exit
             }
-            write-host "...Done! A backup was successfully created."
+            write-output "...Done! A backup was successfully created."
         }
 
-        write-host "`nScanning for existing OnlyFans Metadata Database files..."
+        write-output "`nScanning for existing OnlyFans Metadata Database files..."
 
         #Finding all of our metadata databases. 
         $collectionOfDatabaseFiles = Get-ChildItem -Path $PathToOnlyFansContent -Recurse | where-object {$_.name -in "user_data.db","posts.db"}
@@ -398,14 +398,14 @@ else {
                     $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
                 }
             }
-            write-host "Discovered a metadata database for '$performername' "
+            write-output "Discovered a metadata database for '$performername' "
         }
 
         #For the discovery of multiple database files
         elseif ($collectionOfDatabaseFiles.count -gt 1){
             
-            write-host "Discovered multiple metadata databases"
-            write-host "0 - Process metadata for all performers"
+            write-output "Discovered multiple metadata databases"
+            write-output "0 - Process metadata for all performers"
 
             $i=1 # just used cosmetically
             Foreach ($OFDBdatabase in $collectionOfDatabaseFiles){
@@ -430,7 +430,7 @@ else {
                     }
                 }
               
-                write-host "$i - $performername"
+                write-output "$i - $performername"
                 $i++
 
             }
@@ -443,7 +443,7 @@ else {
 
             #If the user wants to process all performers, let's let them.
             if ([int]$selectednumber -eq 0){
-                write-host "OK, all performers will be processed."
+                write-output "OK, all performers will be processed."
             }
             else{
                 $selectednumber = $selectednumber-1 #Since we are dealing with a 0 based array, i'm realigning the user selection
@@ -455,14 +455,14 @@ else {
                 #Specifically selecting the performer the user wants to parse.
                 $collectionOfDatabaseFiles = $collectionOfDatabaseFiles[$selectednumber]
 
-                write-host "OK, the performer '$performername' will be processed."
+                write-output "OK, the performer '$performername' will be processed."
             }
         }
 
         #Only try to parse metadata from metadata database files if we've discovered a database file.
         if ($collectionOfDatabaseFiles){
 
-            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+            write-output "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
             read-host "`nPress [Enter] to begin"
 
             $numModified = 0
@@ -483,7 +483,7 @@ else {
                 #The MD5 hash of the studio name "OnlyFans" is a known string. I've skipped out on generating this value
                 $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com','13954e64886e8317d2df22fec295e924', '"+$timestamp+"', '"+$timestamp+"')"
                 $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                write-host "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
+                write-output "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
 
                 $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
                 $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
@@ -515,9 +515,9 @@ else {
 
                 #If the OF metadata db is no good, tell the user and skip the rest of this very massive conditional block (I need to refactor this)
                 if ((!$SchemaIsValid)){
-                    write-host "Error: The following OnlyFans metadata database doesn't contain the metadata in a format that this script expects." -ForegroundColor Red
-                    write-host "This can occur if you've scraped OnlyFans using an unsupported tool. " -ForegroundColor Red
-                    write-host $collectionOfDatabaseFiles[0].FullName
+                    write-output "Error: The following OnlyFans metadata database doesn't contain the metadata in a format that this script expects." -ForegroundColor Red
+                    write-output "This can occur if you've scraped OnlyFans using an unsupported tool. " -ForegroundColor Red
+                    write-output $collectionOfDatabaseFiles[0].FullName
                     read-host "Press [Enter] to continue"
                     
                 }
@@ -536,7 +536,7 @@ else {
                             $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
                         }
                     }
-                    write-host "`nParsing media for $performername" -ForegroundColor Cyan
+                    write-output "`nParsing media for $performername" -ForegroundColor Cyan
                     
                     #Conditional tree for finding the performer ID using either the name or the alias (or creating the performer if neither option work out)
                     $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
@@ -560,7 +560,7 @@ else {
                             #Creating the performer in Stash's db
                             $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
                             Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
+                            write-output "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
 
                             $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
                             $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
@@ -637,11 +637,11 @@ else {
                         #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
                         if ($null -eq $StashDB_QueryResult){
                             if (Test-Path $OFDBFullFilePath){
-                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                                write-output "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                             }
                             #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
                             else{
-                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                                write-output "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                                 Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
                                 $nummissingfiles++
                             }
@@ -713,11 +713,11 @@ else {
 
                                 #Providing user feedback and adding to the modified counter if necessary
                                 if ($filewasmodified){
-                                    write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                    write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                     $numModified++  
                                 }
                                 else{
-                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
                                     $numUnmodified++
                                 }
 
@@ -745,11 +745,11 @@ else {
 
                                 #Providing user feedback and adding to the modified counter if necessary
                                 if ($filewasmodified){
-                                    write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                    write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                     $numModified++  
                                 }
                                 else{
-                                    write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                    write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
                                     $numUnmodified++
                                 }
                             }
@@ -759,14 +759,14 @@ else {
             }
         }
         if ($nummissingfiles -gt 0){
-            write-host "`n- Missing Files -" -ForegroundColor Cyan
-            write-host "There is available metadata for $nummissingfiles files in your OnlyFans Database that cannot be found in your Stash Database."
-            write-host "    - Be sure to review the MissingFiles log."
-            write-host "    - There's a good chance you may need to rescan your OnlyFans folder in Stash and/or redownload those files"
+            write-output "`n- Missing Files -" -ForegroundColor Cyan
+            write-output "There is available metadata for $nummissingfiles files in your OnlyFans Database that cannot be found in your Stash Database."
+            write-output "    - Be sure to review the MissingFiles log."
+            write-output "    - There's a good chance you may need to rescan your OnlyFans folder in Stash and/or redownload those files"
         }
 
-        write-host "`n****** Import Complete ******"-ForegroundColor Cyan
-        write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
+        write-output "`n****** Import Complete ******"-ForegroundColor Cyan
+        write-output "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
 
         #Some quick date arithmetic to calculate elapsed time
         $scriptEndTime = Get-Date
@@ -775,28 +775,28 @@ else {
             [int]$Minutes = $scriptduration / 60
             [int]$seconds = $scriptduration % 60
             if ($minutes -gt 1){
-                write-host "- This script took $minutes minutes and $seconds seconds to execute"
+                write-output "- This script took $minutes minutes and $seconds seconds to execute"
             }
             else{
-                write-host "- This script took $minutes minute and $seconds seconds to execute"
+                write-output "- This script took $minutes minute and $seconds seconds to execute"
             }
         }
         else{
-            write-host "- This script took $scriptduration seconds to execute"
+            write-output "- This script took $scriptduration seconds to execute"
         }
     }
    
 
 ###Code for the "No Metadata Database" feature
     elseif($userscanselection -eq 2){
-        write-host "`n- Overview - " -ForegroundColor Cyan
-        write-host "    - This script will try and determine performer names for discovered files based on file path."
-        write-host "    - Files that already have metadata in Stash will be ignored."
-        write-host "    - You can point this script at your top level 'OnlyFans' folder containing several performers."
-        write-host "      That said, please be extra sure to NOT scan folders that do not contain OnlyFans content. "
-        write-host "`n- Choose a Scan Mode - " -ForegroundColor Cyan
-        write-host "1 - I am hosting Stash on this computer. [Default]"
-        write-host "2 - I am hosting Stash remotely on a different computer/using Docker"
+        write-output "`n- Overview - " -ForegroundColor Cyan
+        write-output "    - This script will try and determine performer names for discovered files based on file path."
+        write-output "    - Files that already have metadata in Stash will be ignored."
+        write-output "    - You can point this script at your top level 'OnlyFans' folder containing several performers."
+        write-output "      That said, please be extra sure to NOT scan folders that do not contain OnlyFans content. "
+        write-output "`n- Choose a Scan Mode - " -ForegroundColor Cyan
+        write-output "1 - I am hosting Stash on this computer. [Default]"
+        write-output "2 - I am hosting Stash remotely on a different computer/using Docker"
 
         $UserIsUsingRemoteStashSelection = 0;
         do {
@@ -805,15 +805,15 @@ else {
         while (($UserIsUsingRemoteStashSelection -notmatch "[1-2]"))
 
         if($UserIsUsingRemoteStashSelection -eq 2){
-            write-host "`n- Additional Note - " -ForegroundColor Cyan
-            write-host "     - As you are hosting Stash elsewhere, this script will match based on filename rather than a file's full filepath"
-            write-host "       Please ensure your filenames are unique. (Ex. 0ergergfdser_source.mp4)"
+            write-output "`n- Additional Note - " -ForegroundColor Cyan
+            write-output "     - As you are hosting Stash elsewhere, this script will match based on filename rather than a file's full filepath"
+            write-output "       Please ensure your filenames are unique. (Ex. 0ergergfdser_source.mp4)"
         }
 
         #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
         $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
         if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
-            write-host "OK, no backup will be created." 
+            write-output "OK, no backup will be created." 
         }
         else{
             $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
@@ -827,10 +827,10 @@ else {
                 read-host "Unable to make a backup! Permissions error? Press [Enter] to exit"
                 exit
             }
-            write-host "...Done! A backup was successfully created."
+            write-output "...Done! A backup was successfully created."
         }
 
-        write-host "`nThe following path will be parsed:`n - $PathToOnlyFansContent"
+        write-output "`nThe following path will be parsed:`n - $PathToOnlyFansContent"
         read-host "`nPress [Enter] to begin"
 
         #A buffer for Performer Name and Performer ID to minimize how often we reach out to the DB. 
@@ -860,7 +860,7 @@ else {
            #The MD5 hash of the studio name "OnlyFans" is a known string. I've skipped out on generating this value
            $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com','13954e64886e8317d2df22fec295e924', '"+$timestamp+"', '"+$timestamp+"')"
            $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-           write-host "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
+           write-output "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
 
            $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
            $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
@@ -992,7 +992,7 @@ else {
                             #Creating the performer in Stash's db
                             $Query = "INSERT INTO performers (name, url, created_at, updated_at) VALUES ('"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"');"
                             Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
+                            write-output "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
                         }
                         #Running a select statement now that our insert is complete so that we can get the performer ID
                         $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
@@ -1022,11 +1022,11 @@ else {
                         $QueryBuffer[$QueryBufferCounter] = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
                         $QueryBufferCounter++
                     }
-                    write-host "- Added metadata to Stash's database for the following file:`n   $OFFile" 
+                    write-output "- Added metadata to Stash's database for the following file:`n   $OFFile" 
                     $numModified++
                 }
                 else {
-                    write-host "- This file already has metadata, moving on...`n   $OFFile"
+                    write-output "- This file already has metadata, moving on...`n   $OFFile"
                     $numUnmodified++
                 }
                 
@@ -1072,14 +1072,14 @@ else {
         }
 
         if(($numModified -eq 0) -and ($numUnmodified -eq 0)){
-            write-host "...Complete." -ForegroundColor Cyan
-            write-host "This script has finished parsing the requested directory but no files were found in your Stash that match the files on your filesystem."
-            write-host "Your Stash database was not modified."
-            write-host "Try running this mode again, but with the 'Stash is hosted remotely' option!"
+            write-output "...Complete." -ForegroundColor Cyan
+            write-output "This script has finished parsing the requested directory but no files were found in your Stash that match the files on your filesystem."
+            write-output "Your Stash database was not modified."
+            write-output "Try running this mode again, but with the 'Stash is hosted remotely' option!"
         }
         else {
-            write-host "`n****** Import Complete ******"-ForegroundColor Cyan
-            write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
+            write-output "`n****** Import Complete ******"-ForegroundColor Cyan
+            write-output "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
     
             #Some quick date arithmetic to calculate elapsed time
             $scriptEndTime = Get-Date
@@ -1088,14 +1088,14 @@ else {
                 [int]$Minutes = $scriptduration / 60
                 [int]$seconds = $scriptduration % 60
                 if ($minutes -gt 1){
-                    write-host "- This script took $minutes minutes and $seconds seconds to execute"
+                    write-output "- This script took $minutes minutes and $seconds seconds to execute"
                 }
                 else{
-                    write-host "- This script took $minutes minute and $seconds seconds to execute"
+                    write-output "- This script took $minutes minute and $seconds seconds to execute"
                 }
             }
             else{
-                write-host "- This script took $scriptduration seconds to execute"
+                write-output "- This script took $scriptduration seconds to execute"
             }
         }
     }
