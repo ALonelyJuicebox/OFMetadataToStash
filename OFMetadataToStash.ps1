@@ -24,7 +24,7 @@ REQUIREMENTS
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
     write-output "(1 of 4) Define the path to  your Stash Database file"
-    write-output "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named"$directorydelimiter"db"$directorydelimiter" with a filename of 'stash-go.sqlite'`n"
+    write-output "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named 'db' `n      with a filename of 'stash-go.sqlite'`n"
     
     if ($null -ne $PathToStashDatabase){
         #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
@@ -56,7 +56,7 @@ REQUIREMENTS
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
     write-output "(2 of 4) Define the path to your OnlyFans content`n"
-    write-output "    * OnlyFans metadata database files are named 'user_data.db' and they are `n      located under <performername>"$directorydelimiter"metadata"$directorydelimiter
+    write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are commonly `n      located under <performername> $directorydelimiter metadata $directorydelimiter , as defined by your OnlyFans scraper of choice"
     write-output "    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
     write-output "    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
     if ($null -ne $PathToOnlyFansContent){
@@ -69,7 +69,7 @@ REQUIREMENTS
             write-output "Oops. Invalid filepath"
         }
         if($IsWindows){
-            write-output "Option 1: I want to point to a folder containing all my OnlyFans content and databases"
+            write-output "Option 1: I want to point to a folder containing all my OnlyFans content/OnlyFans metadata databases"
             write-output "Option 2: I want to point to a single OnlyFans Metadata file (user_data.db)`n"
 
             do {
@@ -133,24 +133,24 @@ REQUIREMENTS
     write-output "--------------------------`n"
     write-output "(4 of 4) Define your Console Output Verbosity Mode"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * Setting this to Verbose does incur a very small performance penalty.`n"
+    write-output "    * Setting this to Verbose does incur a small performance penalty.`n"
     write-output "Option 1: Normal  - You will see less info about what the script is actively doing while it's doing it (Recommended)"
-    write-output "Option 2: Verbose - You will see more info about what the script is actively doing while it's doing it."
+    write-output "Option 2: Verbose - You will see more info about what the script is actively doing while it's doing it, with a small speed penalty"
 
 
 
-    $specificityselection = 0;
+    $verbosityselection = 0;
     do {
-        $specificityselection = read-host "`nEnter selection (1 or 2)"
+        $verbosityselection = read-host "`nEnter selection (1 or 2)"
     }
-    while (($specificityselection -notmatch "[1-2]"))
+    while (($verbosityselection -notmatch "[1-2]"))
 
     #Code for parsing metadata files
-    if($specificityselection -eq 1){
-        $SearchSpecificity = "Normal"
+    if($verbosityselection -eq 1){
+        $ConsoleVerbosity = "Normal"
     }
     else{
-        $SearchSpecificity = "Verbose"
+        $ConsoleVerbosity = "Verbose"
     }
 
 
@@ -393,7 +393,7 @@ else {
         }
         else{
             $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
-            $PathToStashDatabaseBackup = $PathToStashDatabaseBackup+"\stash-go_OnlyFans_Import_BACKUP-"+$(get-date -f yyyy-MM-dd)+".sqlite"
+            $PathToStashDatabaseBackup = $PathToStashDatabaseBackup+"\stash-go_OnlyFans_Import_BACKUP_"+$(get-date -f yyyy-MM-dd_hh-mm)+".sqlite"
             read-host "OK, A backup will be created at`n $PathToStashDatabaseBackup`n`nPress [Enter] to generate backup"
 
             try {
@@ -459,9 +459,9 @@ else {
 
                 #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
                 if ($null -eq $performername){
-                    $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
+                    $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
                     if ($performername -eq "metadata"){
-                        $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
+                        $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
                     }
                 }
               
@@ -497,7 +497,7 @@ else {
         #Only try to parse metadata from metadata database files if we've discovered a database file.
         if ($collectionOfDatabaseFiles){
 
-            write-output "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
             read-host "`nPress [Enter] to begin"
 
             $numModified = 0
@@ -672,7 +672,7 @@ else {
                         #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
                         if ($null -eq $StashDB_QueryResult){
                             if (Test-Path $OFDBFullFilePath){
-                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                                write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script or changing your Search Specificity mode to Low.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                             }
                             #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
                             else{
@@ -767,13 +767,14 @@ else {
 
                                 #Updating image metadata if necessary
                                 if (($StashDB_QueryResult.images_title -ne $proposedtitle)){
-                                    $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"', url='"+$linktoperformerpage+"', date='"+$creationdatefromOF+"', WHERE id='"+$StashDB_QueryResult.images_id+"'"
+                                    $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"', url='"+$linktoperformerpage+"', date='"+$creationdatefromOF+"' WHERE id='"+$StashDB_QueryResult.images_id+"'"
                                     Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
+                                   
                                     $filewasmodified = $true
                                 }
 
                                 #Updating Stash with the performer for this media if one is not already associated
-                                $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult.images_id
+                                $Query = "SELECT * FROM performers_images WHERE performer_id = "+$PerformerID+" AND image_id = "+$StashDB_QueryResult.images_id
                                 $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
                                 if(!$StashDB_PerformerUpdateResult){
                                     $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult.images_id+")"

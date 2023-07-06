@@ -1,3 +1,5 @@
 
 OFMetadataToStash_Config
 OFMetadataToStash_MissingFiles.txt
+*.sqlite-wal
+*.sqlite-shm
