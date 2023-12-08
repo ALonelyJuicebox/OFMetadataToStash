@@ -1,3 +1,8 @@
+**0.5 Release (12/7/2023)**
+-  **Feature** - Total refactor! Script now uses GraphQL to communicate with Stash. No more reliance on SQL queries running afoul of Stash schemaa changes!
+-  **Known Bug** - Haven't gotten around to refactoring the "No Metadata Database" mode.
+-  **Known Bug** - Setting the "match" mode to "High" may result in fewer matches than it should.
+
 **0.4 Release (1/3/2023)**
 -  **Feature** - Now supports the new Stash 0.18 schema which contains significant upgrades to how files are handled in Stash (phew!)
 -  **Feature** - Script now helps you build out the config file, no need to edit the config file manually unless you want to.
