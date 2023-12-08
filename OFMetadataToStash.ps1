@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata to Stash Database PoSH Script 0.4---
+---OnlyFans Metadata DB to Stash PoSH Script 0.5---
 
 AUTHOR
     JuiceBox
@@ -7,59 +7,79 @@ URL
     https://github.com/ALonelyJuicebox/OFMetadataToStash
 
 DESCRIPTION
-    Using the metadata database from DC's script, imports metadata such as the URL, post associated text, and creation date into your stash DB
+    Using the metadata database from an OnlyFans scraper script, imports metadata such as the URL, post associated text, and creation date into your stash DB
 
 REQUIREMENTS
-    - Metadata database must be from DC's script
     - The Powershell module "PSSQLite" must be installed https://github.com/RamblingCookieMonster/PSSQLite
        Download a zip of the PSSQlite folder in that repo, extract it, run an Admin window of Powershell
        in that directory then run 'install-module pssqlite' followed by the command 'import-module pssqlite'
  #>
 
+ #Powershell Dependencies
+#requires -modules PSGraphQL
+#requires -modules PSSQLite
+#requires -Version 7
+
+#Import Modules now that we know we have them
+Import-Module PSGraphQL
+Import-Module PSSQLite
+
+
 ### Functions
 
 #Set-Config is a wizard that walks the user through the configuration settings
- function Set-Config{
+function Set-Config{
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(1 of 3) Define the path to  your Stash Database file"
-    write-host "`n    * Your Stash Database file is typically located in the installation folder`n      of your Stash inside of a folder named"$directorydelimiter"db"$directorydelimiter" with a filename of 'stash-go.sqlite'`n"
-    
-    if ($null -ne $PathToStashDatabase){
-        #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
-        $PathToStashDatabase = $null
-    }
-    do{
-        #Providing some user feedback if we tested the path and it came back as invalid
-        if($null -ne $PathToStashDatabase){
-            write-host "Oops. Invalid filepath"
-        }
-        if($IsWindows){
-            read-host "Press [Enter] to select your Stash Database File"
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(1 of 4) Define the URL to your Stash"
+    write-output "Option 1: Stash is hosted on the computer I'm using right now (localhost:9999)"
+    write-output "Option 2: Stash is hosted at a different address and/or port (Ex. 192.168.1.2:6969)`n"
 
-            #Using Windows File Explorer instead of forcing the user to copy/paste the path into the terminal
-            Add-Type -AssemblyName System.Windows.Forms
-            $FileBrowser = New-Object System.Windows.Forms.OpenFileDialog -Property @{ 
-                Filter = 'SQLite Database File (*.sqlite)|*.sqlite'
+    do {
+        $userselection = read-host "Enter your selection (1 or 2)"
+    }
+    while (($userselection -notmatch "[1-2]"))
+
+    if ($userselection -eq 1){
+        $StashGQL_URL = "http://localhost:9999/graphql"
+    }
+
+    #Asking the user for the Stash URL, with some error handling
+    else {
+        while ($null -eq $StashGQL_Result ){
+            $StashGQL_URL = read-host "`nPlease enter the URL to your Stash"
+            $StashGQL_URL = $StashGQL_URL + '/graphql' #Tacking on the gql endpoint
+    
+            while (!($StashGQL_URL.contains(":"))){
+                write-host "Error: Oops, looks like you forgot to enter the port number (Ex. <URL>:9999)." -ForegroundColor red
+                $StashGQL_URL = read-host "`nPlease enter the URL to your Stash"
             }
-            $null = $FileBrowser.ShowDialog()
-            $PathToStashDatabase = $FileBrowser.filename
-        }
-        else{
-            $PathToStashDatabase = read-host "Enter the location of your Stash Database File"
+    
+            if (!($StashGQL_URL.contains("http"))){
+                $StashGQL_URL = "http://"+$StashGQL_URL
+            }
+    
+            #Now to check to ensure this address is valid-- we'll use a very simple GQL query and get the Stash version
+            $StashGQL_Result = 'query version{version{version}}'
+            try{
+                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL |out-null
+            }
+            catch{
+                write-host "(0) Error: Could not communicate to Stash at the provided address ($StashGQL_URL)" -ForegroundColor red
+            }
         }
     }
-    while(!(test-path $PathToStashDatabase))
+
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(2 of 3) Define the path to your OnlyFans content`n"
-    write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are `n      located under <performername>"$directorydelimiter"metadata"$directorydelimiter
-    write-host "    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
-    write-host "    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(2 of 4) Define the path to your OnlyFans content`n"
+    write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are commonly `n      located under <performername> $directorydelimiter metadata $directorydelimiter , as defined by your OnlyFans scraper of choice"
+    write-output "`n    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
+    write-output "`n    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
     if ($null -ne $PathToOnlyFansContent){
         #If the user is coming to this function with this variable set, we set it to null so that there is better user feedback if a bad filepath is provided by the user.
         $PathToOnlyFansContent = $null
@@ -67,11 +87,11 @@ REQUIREMENTS
     do{
         #Providing some user feedback if we tested the path and it came back as invalid
         if($null -ne $PathToOnlyFansContent){
-            write-host "Oops. Invalid filepath"
+            write-output "Oops. Invalid filepath"
         }
         if($IsWindows){
-            write-host "Option 1: I want to point to a folder containing all my OnlyFans content and databases"
-            write-host "Option 2: I want to point to a single OnlyFans Metadata file (user_data.db)`n"
+            write-output "Option 1: I want to point to a folder containing all my OnlyFans content/OnlyFans metadata databases"
+            write-output "Option 2: I want to point to a single OnlyFans Metadata file (user_data.db)`n"
 
             do {
                 $userselection = read-host "Enter your selection (1 or 2)"
@@ -99,17 +119,18 @@ REQUIREMENTS
         }
     }
     while(!(test-path $PathToOnlyFansContent))
+
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(3 of 3) Define your Metadata Match Mode"
-    write-host "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
-    write-host "    * If you are an average user, just set this to 'Normal'"
-    write-host "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
-    write-host "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
-    write-host "Option 2: Low    - Will match based only on a matching Filesize"
-    write-host "Option 3: High   - Will match based on a matching path and a matching Filesize"
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(3 of 4) Define your Metadata Match Mode"
+    write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
+    write-output "    * If you are an average user, just set this to 'Normal'"
+    write-output "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
+    write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
+    write-output "Option 2: Low    - Will match based only on a matching Filesize"
+    write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
 
 
     $specificityselection = 0;
@@ -128,37 +149,941 @@ REQUIREMENTS
     else{
         $SearchSpecificity = "High"
     }
+    clear-host
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(4 of 4) Define your Console Output Verbosity Mode"
+    write-output "    * If you are an average user, just set this to 'Normal'"
+    write-output "    * Setting this to Verbose does incur a small performance penalty.`n"
+    write-output "Option 1: Normal  - You will see less info about what the script is actively doing while it's doing it (Recommended)"
+    write-output "Option 2: Verbose - You will see more info about what the script is actively doing while it's doing it, with a small speed penalty"
+
+
+
+    $verbosityselection = 0;
+    do {
+        $verbosityselection = read-host "`nEnter selection (1 or 2)"
+    }
+    while (($verbosityselection -notmatch "[1-2]"))
+
+    #Code for parsing metadata files
+    if($verbosityselection -eq 1){
+        $ConsoleVerbosity = "Normal"
+    }
+    else{
+        $ConsoleVerbosity = "Verbose"
+    }
+
 
     clear-host
-    write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-    write-host "Configuration Setup Wizard"
-    write-host "--------------------------`n"
-    write-host "(3 of 3b) Review your settings`n"
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(Summary) Review your settings`n"
 
-    write-host "Path to Stash Database:`n - $PathToStashDatabase`n"
-    write-host "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
-    write-host "Metadata Match Mode:`n - $SearchSpecificity`n"
+    write-output "URL to Stash API:`n - $StashGQL_URL`n"
+    write-output "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
+    write-output "Metadata Match Mode:`n - $SearchSpecificity`n"
+    write-output "Console Verbosity Mode:`n - $ConsoleVerbosity`n"
 
-    read-host "Press [Enter] to save this configuration"
+    read-host "Press [Enter] to save this configuration and return to the Main Menu"
 
 
     #Now to make our configuration file
-    Out-File $PathToConfigFile
-    Add-Content -path $PathToConfigFile -value "## Direct Path to Stash Database (stash-go.sqlite) ##"
-    Add-Content -path $PathToConfigFile -value $PathToStashDatabase
-    Add-Content -path $PathToConfigFile -value "## Direct Path to OnlyFans Metadata Database or top level folder containing OnlyFans content ##"
-    Add-Content -path $PathToConfigFile -value $PathToOnlyFansContent
-    Add-Content -path $PathToConfigFile -value "## Search Specificity mode. (Normal | High | Low) ##"
-    Add-Content -path $PathToConfigFile -value $SearchSpecificity
+    try { 
+        Out-File $PathToConfigFile
+    }
+    catch{
+        write-output "Error - Something went wrong while trying to save the config file to the filesystem ($PathToConfigFile)" -ForegroundColor red
+        read-output "Press [Enter] to exit" -ForegroundColor red
+        exit
+    }
 
-    write-host "...Done!`nRun this script again to apply the new settings"
-    exit
- }
+    try{ 
+        Add-Content -path $PathToConfigFile -value "## URL to the Stash GraphQL API endpoint ##"
+        Add-Content -path $PathToConfigFile -value $StashGQL_URL
+        Add-Content -path $PathToConfigFile -value "## Direct Path to OnlyFans Metadata Database or top level folder containing OnlyFans content ##"
+        Add-Content -path $PathToConfigFile -value $PathToOnlyFansContent
+        Add-Content -path $PathToConfigFile -value "## Search Specificity mode. (Normal | High | Low) ##"
+        Add-Content -path $PathToConfigFile -value $SearchSpecificity
+        Add-Content -path $PathToConfigFile -value "## Console Verbosity Mode. (Normal | Verbose) ##"
+        Add-Content -path $PathToConfigFile -value $ConsoleVerbosity
+    }
+    catch {
+        write-output "Error - Something went wrong while trying add your configurations to the config file ($PathToConfigFile)" -ForegroundColor red
+        read-output "Press [Enter] to exit" -ForegroundColor red
+        exit
+    }
+    
+} #End Set-Config
+
+#Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
+function Add-MetadataUsingOFDB{
+    #Playing it safe and asking the user to back up their database first
+    $backupConfirmation = Read-Host "`nBefore we begin, would you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
+
+    if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
+        write-output "OK, no backup will be created." 
+    }
+    else{
+        
+        $StashGQL_Query = 'mutation BackupDatabase($input: BackupDatabaseInput!) {
+            backupDatabase(input: $input)
+          }'
+        $StashGQL_QueryVariables = '{
+            "input": {}
+          }' 
+
+        try{
+            Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+        }
+        catch{
+            write-host "(10) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            read-host "Press [Enter] to exit"
+            exit
+        }
 
 
 
-### Main Script
-#We need to know what deliminter to use based on OS. Writing it this way with a second if statement avoids an error from machines that are running Windows Powershell and not Powershell Core
+        write-output "...Done! A backup was successfully created."
+    }
+    write-output "`nScanning for existing OnlyFans Metadata Database files..."
+
+    #Finding all of our metadata databases. 
+    $OFDatabaseFilesCollection = Get-ChildItem -Path $PathToOnlyFansContent -Recurse | where-object {$_.name -in "user_data.db","posts.db"}
+        
+    #For the discovery of a single database file
+    if ($OFDatabaseFilesCollection.count -eq 1){
+
+        #More modern OF DB schemas include the name of the performer in the profile table. If this table does not exist we will have to derive the performer name from the filepath, assuming the db is in a /metadata/ folder.
+        $Query = "PRAGMA table_info(medias)"
+        $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
+        #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+        $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+
+        $performername = $null
+        if ($OFDBColumnsToCheck -match "profiles"){
+            $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+            $performername =  Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
+        }
+
+        #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+        if ($null -eq $performername){
+            $performername = $OFDatabaseFilesCollection.FullName | split-path | split-path -leaf
+            if ($performername -eq "metadata"){
+                $performername = $OFDatabaseFilesCollection.FullName | split-path | split-path | split-path -leaf
+            }
+        }
+        write-output "Discovered a metadata database for '$performername' "
+    }
+
+    #For the discovery of multiple database files
+    elseif ($OFDatabaseFilesCollection.count -gt 1){
+        
+        write-output "Discovered multiple metadata databases"
+        write-output "0 - Process metadata for all performers"
+
+        $i=1 # just used cosmetically
+        Foreach ($OFDBdatabase in $OFDatabaseFilesCollection){
+
+            #Getting the performer name from the profiles table (if it exists)
+            $Query = "PRAGMA table_info(medias)"
+            $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDBdatabase.FullName
+
+            #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+            $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+            $performername = $null
+            if ($OFDBColumnsToCheck -match "profiles"){
+                $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                $performername =  Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
+            }
+
+            #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+            if ($null -eq $performername){
+                $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
+                if ($performername -eq "metadata"){
+                    $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
+                }
+            }
+          
+            write-output "$i - $performername"
+            $i++
+
+        }
+        $selectednumber = read-host "`nWhich performer would you like to select [Enter a number]"
+
+        #Checking for bad input
+        while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $OFDatabaseFilesCollection.Count)){
+            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select [Enter a number]"
+        }
+
+        #If the user wants to process all performers, let's let them.
+        if ([int]$selectednumber -eq 0){
+            write-output "OK, all performers will be processed."
+        }
+        else{
+            $selectednumber = $selectednumber-1 #Since we are dealing with a 0 based array, i'm realigning the user selection
+            $performername = $OFDatabaseFilesCollection[$selectednumber].FullName | split-path | split-path -leaf
+            if ($performername -eq "metadata"){
+                $performername = $OFDatabaseFilesCollection[$selectednumber].FullName | split-path | split-path | split-path -leaf #Basically if we hit the metadata folder, go a folder higher and call it the performer
+            }
+            
+            #Specifically selecting the performer the user wants to parse.
+            $OFDatabaseFilesCollection = $OFDatabaseFilesCollection[$selectednumber]
+
+            write-output "OK, the performer '$performername' will be processed."
+            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+            read-host "`nPress [Enter] to begin"
+        }
+    }
+
+    #We use these values after the script finishes parsing in order to provide the user with some nice stats
+    $numModified = 0
+    $numUnmodified = 0
+    $nummissingfiles = 0
+    $scriptStartTime = get-date
+
+    #Getting the OnlyFans Studio ID or creating it if it does not exist.
+    $StashGQL_Query = '
+    query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
+        findStudios(filter: $filter, studio_filter: $studio_filter) {
+            count
+            studios {
+                id
+                name
+            }
+        }
+    }
+    ' 
+    $StashGQL_QueryVariables = '{
+    "filter": {
+        "q": "OnlyFans",
+    }
+    }'
+    try{
+        $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+    }
+    catch{
+        write-host "(1) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+        read-host "Press [Enter] to exit"
+        exit
+    }
+    $OnlyFansStudioID = $StashGQL_Result.data.findStudios.Studios[0].id
+
+    #If Stash returns with an ID for 'OnlyFans', great. Otherwise, let's create a new studio
+    if ($null -eq $OnlyFansStudioID){
+        $StashGQL_Query = 'mutation StudioCreate($input: StudioCreateInput!) {
+            studioCreate(input: $input) {
+              name
+              url
+            }
+          }'
+
+        $StashGQL_QueryVariables = '{
+            "input": {
+                "name": "OnlyFans",
+                "url": "www.onlyfans.com/"
+            }    
+        }'
+
+        try{
+            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+        }
+        catch{
+            write-host "(9) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            read-host "Press [Enter] to exit"
+            exit
+        }
+        $StashGQL_Query = '
+        query FindStudios($filter: FindFilterType, $studio_filter: StudioFilterType) {
+            findStudios(filter: $filter, studio_filter: $studio_filter) {
+                count
+                studios {
+                    id
+                    name
+                }
+            }
+        }
+        ' 
+        $StashGQL_QueryVariables = '{
+        "filter": {
+            "q": "OnlyFans"
+        }
+        }'
+        try{
+            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables 
+        }
+        catch{
+            write-host "(9a) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            read-host "Press [Enter] to exit"
+            exit
+        }
+
+        $OnlyFansStudioID = $StashGQL_Result.data.findStudios.Studios[0].id
+        write-host "`nInfo: Added the OnlyFans studio to Stash's database" -ForegroundColor Cyan
+        
+    }
+
+    foreach ($currentdatabase in $OFDatabaseFilesCollection) {
+        #Gotta reparse the performer name as we may be parsing through a full collection of performers. 
+        #Otherwise you'll end up with a whole bunch of performers having the same name
+        #This is also where we will make the determination if this onlyfans database has the right tables to be used here
+        #First step, let's check to ensure this OF db is valid for use
+        $Query = "PRAGMA table_info(medias)"
+        $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $currentdatabase.FullName
+
+        #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+        #Then we use a match condition and a whole lot of or statements to determine if this db has all the right columns this script needs.
+        $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+        if (($OFDBColumnsToCheck -notmatch "media_id") -or ($OFDBColumnsToCheck -notmatch "post_id") -or ($OFDBColumnsToCheck -notmatch "directory") -or ($OFDBColumnsToCheck -notmatch "filename") -or ($OFDBColumnsToCheck -notmatch "size") -or ($OFDBColumnsToCheck -notmatch "media_type") -or ($OFDBColumnsToCheck -notmatch "created_at")){
+            $SchemaIsValid = $false
+        }
+        else {
+            $SchemaIsValid = $true
+        }
+
+        #If the OF metadata db is no good, tell the user and skip the rest of this very massive conditional block (I need to refactor this)
+        if ((!$SchemaIsValid)){
+            write-host "Error: The following OnlyFans metadata database doesn't contain the metadata in a format that this script expects." -ForegroundColor Red
+            write-host "This can occur if you've scraped OnlyFans using an unsupported tool. " -ForegroundColor Red
+            write-output $currentdatabase.FullName
+            read-host "Press [Enter] to continue"
+            
+        }
+        else{
+            #More modern OF DB schemas include the name of the performer in the profile table. If this table does not exist we will have to derive the performer name from the filepath, assuming the db is in a /metadata/ folder.
+            $performername = $null
+            if ($OFDBColumnsToCheck -match "profiles"){
+                $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                $performername =  Invoke-SqliteQuery -Query $Query -DataSource $currentdatabase.FullName
+                
+            }
+
+            #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+            if ($null -eq $performername){
+                $performername = $currentdatabase.FullName | split-path | split-path -leaf
+                
+                if ($performername -eq "metadata"){
+                    $performername = $currentdatabase.FullName | split-path | split-path | split-path -leaf
+                }
+            }
+            write-host "`nInfo: Parsing media for $performername" -ForegroundColor Cyan
+
+            #Let's see if we can find this performer in Stash
+            $StashGQL_Query = '
+            query FindPerformers($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+               findPerformers(filter: $filter, performer_filter: $performer_filter) {
+                 count
+                 performers {
+                   id
+                   name
+                 }
+               }
+             }
+            ' 
+            $StashGQL_QueryVariables = '{
+                "filter": {
+                    "q": "'+$performername+'"
+                }
+            }'
+            try{
+                $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+            }
+            catch{
+                write-host "(2) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                read-host "Press [Enter] to exit"
+                exit
+            }
+            $PerformerID = $StashGQL_Result.data.findPerformers.performers[0].id
+            
+            #If we had no luck finding the performer, lets create one, then get the ID
+            if($null -eq $performerID){
+       
+                $StashGQL_Query = 'mutation PerformerCreate($input: PerformerCreateInput!) {
+                    performerCreate(input: $input) {
+                        name
+                        url
+                    }
+                  }'
+
+                $StashGQL_QueryVariables = '{
+                    "input": {
+                        "name": "'+$performername+'",
+                        "url": "www.onlyfans.com/'+$performername+'"
+                    }    
+                }' 
+            
+                try{
+                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                }
+                catch{
+                    write-host "(3) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    read-host "Press [Enter] to exit"
+                    exit
+                }
+                $StashGQL_Query = '
+                query FindPerformers($filter: FindFilterType, $performer_filter: PerformerFilterType) {
+                   findPerformers(filter: $filter, performer_filter: $performer_filter) {
+                     count
+                     performers {
+                       id
+                       name
+                     }
+                   }
+                 }
+                ' 
+                $StashGQL_QueryVariables = '{
+                    "filter": {
+                        "q": "'+$performername+'"
+                    }
+                }'
+                try{
+                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                }
+                catch{
+                    write-host "(22) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    read-host "Press [Enter] to exit"
+                    exit
+                }
+                $PerformerID = $StashGQL_Result.data.findPerformers.performers[0].id
+                $creatednewperformer = $true
+                write-host "`nInfo: Added a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
+                
+            }
+            else{
+                $creatednewperformer = $false #We'll use this later after images have been added in order to give the performer a profile picture
+            }
+
+
+
+            #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
+            $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
+            $OF_DBpath = $currentdatabase.fullname 
+            $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
+            foreach ($OFDBMedia in $OFDBQueryResult){
+
+                #Generating the URL for this post
+                $linktoOFpost = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
+                
+                #Reformatting the date to something stash appropriate
+                $creationdatefromOF = $OFDBMedia.created_at
+                $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
+                
+                $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
+                $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
+                $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
+                $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
+
+                #Storing separate variants of these variables with apostrophy sanitization so they don't ruin our SQL queries
+                $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
+                $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
+    
+
+                #Note that the OF downloader quantifies gifs as videos for some reason
+                #Since Stash doesn't (and rightfully so), we need to account for this
+                if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
+                    $mediatype = "video"
+                }
+                #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
+                elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
+                    $mediatype = "image"
+                }
+
+                #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
+                #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
+                if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'             
+                }
+                #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
+                elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'
+                }
+                #Low specificity, search for videos based on filesize only
+                elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'   
+                }
+                #Low specificity, search for images based on filesize only
+                elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'
+                }
+
+                #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'
+                }
+
+                #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                else{
+                    $StashGQL_Query = 'mutation {
+                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                        rows
+                      }
+                    }'
+                }
+
+                #Now lets try running the GQL query and see if we have a match in the Stash DB
+                try{
+                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
+                }
+                catch{
+                    write-host "(4) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    read-host "Press [Enter] to exit"
+                    exit
+                }
+
+                if ($StashGQL_Result.data.querySQL.rows.length -ne 0){
+
+                    #Because of how GQL returns data, these values are just positions in the $StashGQLQuery array. Not super memorable, so I'm putting them in variables. 
+                    $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
+                    $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
+
+                    if ($mediatype -eq "video"){
+                        $CurrentFileDetails = $StashGQL_Result.data.querySQL.rows[0][7] #Specific to images (for now), this will only work on Stash version 24 which adds support for image details
+                    }
+                }
+                
+                #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
+                if ($StashGQL_Result.data.querySQL.rows.length -eq 0 ){
+                    if (Test-Path $OFDBFullFilePath){
+                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script or changing your Search Specificity mode to Low.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                    }
+                    #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
+                    else{
+                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                        Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
+                        $nummissingfiles++
+                    }
+                }
+                #Otherwise we have found a match! let's process the matching result and add the metadata we've found
+                else{
+                    
+                    #Before processing, and for the sake of accuracy, if there are multiple filesize matches (specifically for the normal specificity mode), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
+                    if (($StashGQL_Result.data.querySQL.rows.length -gt 1) -and ($searchspecificity -match "normal") ){
+                        #Search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                        if ($mediatype -eq "video"){
+                           
+                            $StashGQL_Query = 'mutation {
+                                querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                                rows
+                              }
+                            }'
+                        }
+
+                        #Search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                        elseif ($mediatype -eq "image" ){
+                            
+                            $StashGQL_Query = 'mutation {
+                                querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                                rows
+                              }
+                            }'
+                        }
+
+                        #Now lets try running the GQL query and try to find the file in the Stash DB
+                        try{
+                            $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
+                        }
+                        catch{
+                            write-host "(5) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            read-host "Press [Enter] to exit"
+                            exit
+                        }
+
+                        #If we have a match, substitute it in and lets get that metadata into the Stash DB
+                        if($StashGQL_Result_2.data.querySQL.rows -eq 1){
+                            $StashGQL_Result = $AlternativeStashGQL_Result
+                            $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
+                            $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
+        
+                            if ($mediatype -eq "video"){
+                                $CurrentFileDetails = $StashGQL_Result.data.querySQL.rows[0][7] #Specific to images, this will only work on Stash version 24 which adds support for image details
+                            }
+                        } 
+                    }
+
+                    #Creating the title we want for the media
+                    $proposedtitle = "$performername - $creationdatefromOF"
+
+                    #Sanitizing the text for apostrophes so they don't ruin our queries
+                    $detailsToAddToStash = $OFDBMedia.text
+                    $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                    $proposedtitle = $proposedtitle.replace("'","''")
+
+                    #Let's check to see if this is a file that already has metadata.
+                    #For Videos, we check the title and the details
+                    #For Images, we only check title (for now)
+                    #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
+                    if ($mediatype -eq "video"){
+                        #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
+                        $filewasmodified = $false
+
+                        #Let's determine if this scene already has the right performer associated to it
+                        $StashGQL_Query = 'query FindScene($id:ID!) {
+                            findScene(id: $id){
+                                performers {
+                                    id 
+                                }
+                            }
+                        
+                        }'
+                        $StashGQL_QueryVariables = '{
+                                "id": "'+$CurrentFileID+'"
+                        }' 
+                        
+                        try{
+                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                        }
+                        catch{
+                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            read-host "Press [Enter] to exit"
+                            exit
+                        }
+
+                        $performermatch = $false
+                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
+                            foreach ($performer in $StashGQL_Result.data.findscene.performers.id){
+                                if($performer -eq $performerid){       
+                                    $performermatch = $true
+                                    break
+                                }
+                            }
+                        }
+                        if (!$performermatch){
+                            $filewasmodified = $true
+                            $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
+                                sceneUpdate(input: $sceneUpdateInput){
+                                    id
+                                    performers{
+                                        id
+                                    }
+                                }
+                            }'
+                            $StashGQL_QueryVariables = ' {
+                                "sceneUpdateInput": {
+                                    "id": "'+$CurrentFileID+'",
+                                    "performer_ids": "'+$performerID+'"
+                                }
+                            }'
+                            try{
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                            }
+                            catch{
+                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                read-host "Press [Enter] to exit"
+                                exit
+                            }
+                        }
+
+                        #If it's necessary, update the scene by modifying the title and adding details
+                        if(($CurrentFileTitle -ne $proposedtitle) -or ($CurrentFileDetails -ne $OFDBMedia.text)){
+                            
+                            $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
+                                sceneUpdate(input: $sceneUpdateInput){
+                                  id
+                                  title
+                                  date
+                                  studio {
+                                    id
+                                  }
+                                  details
+                                  urls
+                                }
+                              }'  
+                            $StashGQL_QueryVariables = '{
+                                "sceneUpdateInput": {
+                                    "id": "'+$CurrentFileID+'",
+                                    "title": "'+$proposedtitle+'",
+                                    "date": "'+$creationdatefromOF+'",
+                                    "studio_id": "'+$OnlyFansStudioID+'",
+                                    "details": "'+$detailsToAddToStash+'",
+                                    "urls": "'+$linktoOFpost+'"
+                                }
+                            }'
+
+                            try{
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                            }
+                            catch{
+                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                read-host "Press [Enter] to exit"
+                                exit
+                            }
+
+                            $filewasmodified = $true
+                        }
+
+                        #Provide user feedback on what has occured and add to the "file modified" counter for stats later
+                        if ($filewasmodified){
+                            if ($ConsoleVerbosity -eq "Verbose"){
+                                write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                            }
+                            $numModified++  
+                        }
+                        else{
+                            if ($ConsoleVerbosity -eq "Verbose"){
+                                write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                            }
+                            $numUnmodified++
+                        }
+                    }
+
+                    #For images
+                    else{
+                        #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
+                        $filewasmodified = $false
+
+                        #Let's determine if this scene already has the right performer associated to it
+                        $StashGQL_Query = 'query FindScene($id:ID!) {
+                            findScene(id: $id){
+                                performers {
+                                    id 
+                                }
+                            }
+                        
+                        }'
+                        $StashGQL_QueryVariables = '{
+                                "id": "'+$CurrentFileID+'"
+                        }' 
+                        
+                        try{
+                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                        }
+                        catch{
+                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            read-host "Press [Enter] to exit"
+                            exit
+                        }
+
+                        $performermatch = $false
+                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
+                            foreach ($performer in $StashGQL_Result.data.findscene.performers.id){
+                                if($performer -eq $performerid){       
+                                    $performermatch = $true
+                                    break
+                                }
+                            }
+                        }
+                        if (!$performermatch){
+                            $filewasmodified = $true
+                            $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                imageUpdate(input: $imageUpdateInput){
+                                    id
+                                    performers{
+                                        id
+                                    }
+                                }
+                            }'
+                            $StashGQL_QueryVariables = ' {
+                                "imageUpdateInput": {
+                                    "id": "'+$CurrentFileID+'",
+                                    "performer_ids": "'+$performerID+'"
+                                }
+                            }'
+                            try{
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                            }
+                            catch{
+                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                read-host "Press [Enter] to exit"
+                                exit
+                            }
+                            
+                        }
+
+                        #If it's necessary, update the image by modifying the title and adding details
+                        if(($CurrentFileTitle -ne $proposedtitle) -or ($CurrentFileDetails -ne $OFDBMedia.text)){
+                            
+                            $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                imageUpdate(input: $imageUpdateInput){
+                                  id
+                                  title
+                                  date
+                                  studio {
+                                    id
+                                  }
+                                  urls
+                                }
+                              }'  
+                            $StashGQL_QueryVariables = '{
+                                "imageUpdateInput": {
+                                    "id": "'+$CurrentFileID+'",
+                                    "title": "'+$proposedtitle+'",
+                                    "date": "'+$creationdatefromOF+'",
+                                    "studio_id": "'+$OnlyFansStudioID+'",
+                                    "urls": "'+$linktoOFpost+'"
+                                }
+                            }'
+
+                            try{
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                            }
+                            catch{
+                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                read-host "Press [Enter] to exit"
+                                exit
+                            }
+
+                            $filewasmodified = $true
+                        }
+
+                        #Provide user feedback on what has occured and add to the "file modified" counter for stats later
+                        if ($filewasmodified){
+                            if ($ConsoleVerbosity -eq "Verbose"){
+                                write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                            }
+                            $numModified++  
+                        }
+                        else{
+                            if ($ConsoleVerbosity -eq "Verbose"){
+                                write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                            }
+                            $numUnmodified++
+                        }
+                    } 
+                }
+            }
+            #Before we move on, if we had created a new performer, let's update that performer with a profile image.
+            #The only reason we don't do it earlier is that now all the images have been added and associated and it's easy to select an image and go.
+            if($creatednewperformer){
+
+                #First let's look for an image where this performer has been associated and get the URL for that image
+                $performerimageURL_GQLQuery = 'query FindImages(
+                    $filter: FindFilterType
+                    $image_filter: ImageFilterType
+                    $image_ids: [Int!]
+                ) {
+                    findImages(
+                    filter: $filter,
+                    image_filter: $image_filter,
+                    image_ids: $image_ids){
+                    images{
+                        paths{
+                        image
+                        }
+                    }
+                    }
+                }'
+
+                $performerimageURLVariables_GQLQuery = '
+                {
+                    "filter": {
+                    "q": "",
+                    "page": 1,
+                    "per_page": 1,
+                    "sort": "date",
+                    "direction": "DESC"
+                    },
+                    "image_filter": {
+                    "performers": {
+                        "value": [
+                        "'+$performerID+'"
+                        ],
+                        "excludes": [],
+                        "modifier": "INCLUDES_ALL"
+                    }
+                    }
+                }'
+
+                try{
+                    $performerimageURL = Invoke-GraphQLQuery -Query $performerimageURL_GQLQuery -Uri $StashGQL_URL -Variables $performerimageURLVariables_GQLQuery
+                    
+                }
+                catch{
+                    write-host "(11) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    read-host "Press [Enter] to exit"
+                    exit
+                }
+
+                #If there are any Performer images to be used, we update the performer using the URL path.
+                if ($performerimageURL.data.findimages.images.length -ne 0){
+                    $performerimageURL = $performerimageURL.data.findimages.images.paths.image
+
+                    
+                    $UpdatePerformerImage_GQLQuery ='mutation PerformerUpdate($input: PerformerUpdateInput!) {
+                        performerUpdate(input: $input) {
+                        id
+                        }
+                    }'
+                    $UpdatePerformerImage_GQLVariables = '{
+                        "input": {
+                        "id": "'+$performerID+'",
+                        "image": "'+$performerimageURL+'"
+                        }
+                    }'
+
+                    try{
+                        $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
+                    }
+                    catch{
+                        write-host "(12) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                        read-host "Press [Enter] to exit"
+                        exit
+                    }
+                }
+            }
+        }
+    }
+
+    ## Finished scan, let's let the user know what the results were
+    
+    if ($nummissingfiles -gt 0){
+        write-host "`n- Missing Files -" -ForegroundColor Cyan
+        write-output "There is available metadata for $nummissingfiles files in your OnlyFans Database that cannot be found in your Stash Database."
+        write-output "    - Be sure to review the MissingFiles log."
+        write-output "    - There's a good chance you may need to rescan your OnlyFans folder in Stash and/or redownload those files"
+    }
+
+    write-host "`n****** Import Complete ******"-ForegroundColor Cyan
+    write-output "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
+
+    #Some quick date arithmetic to calculate elapsed time
+    $scriptEndTime = Get-Date
+    $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
+    if($scriptduration -ge 60){
+        [int]$Minutes = $scriptduration / 60
+        [int]$seconds = $scriptduration % 60
+        if ($minutes -gt 1){
+            write-output "- This script took $minutes minutes and $seconds seconds to execute"
+        }
+        else{
+            write-output "- This script took $minutes minute and $seconds seconds to execute"
+        }
+    }
+    else{
+        write-output "- This script took $scriptduration seconds to execute"
+    }
+} #End Add-MetadataUsingOFDB 
+
+function Add-MetadataWithoutOFDB{
+    write-host "`n Dev here-- I haven't finished re-writing this feature yet. Sorry! - JuiceBox"
+    read-host "Press [Enter] to exit"
+}
+
+
+#Main Script
+
+#This script should be OS agnostic-- because Windows likes to be special, let's determine which delimeter is appropriate for file paths.
 if($IsWindows){
     $directorydelimiter = '\'
 }
@@ -166,860 +1091,76 @@ else{
     $directorydelimiter = '/'
 }
 
-
 $pathtoconfigfile = "."+$directorydelimiter+"OFMetadataToStash_Config"
+
+#If there's no configuration file, send the user to create one
 if (!(Test-path $PathToConfigFile)){
-    #Couldn't find a config file? Send the user to recreate their config file with the set-config function
     Set-Config
 }
 
 ## Global Variables ##
-$PathToStashDatabase = (Get-Content $pathtoconfigfile)[1]
+$StashGQL_URL = (Get-Content $pathtoconfigfile)[1]
 $PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[3]
 $SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
+$ConsoleVerbosity = (Get-Content $pathtoconfigfile)[7]
+
 $PathToMissingFilesLog = "."+$directorydelimiter+"OFMetadataToStash_MissingFiles.txt"
-$PathToStashExampleDB = "$directorydelimeter"+"utilities"+"$directorydelimiter"+"stash_example_db.sqlite" #We use this database for schema comparison
-if (!(test-path $PathToStashExampleDB)){
-    write-host "Error: Could not find '$PathToStashExampleDB'. Please redownload this script from Github." -ForegroundColor red
-    read-host "Press [Enter] to exit"
-    exit
+$pathToSanitizerScript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_Sanitizer.ps1"
+
+
+
+#Before we continue, let's make sure everything in the configuration file is good to go
+$StashGQL_Query = 'query version{version{version}}'
+try{
+    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL
 }
-
-clear-host
-write-host "OnlyFans Metadata to Stash Database PoSH Script" -ForegroundColor Cyan
-
-if (!(test-path $PathToStashDatabase)){
-    read-host "Hmm...The defined path to your Stash Database file (Stash-go.sqlite) does not seem to exist at the location in your config file`n($PathToStashDatabase)`n`nPress [Enter] to run through the config wizard"
+catch{
+    write-host "Hmm...Could not communicate to Stash using the URL in the config file ($StashGQL_URL)"
+    write-host "Are you sure Stash is running?"
+    read-host "If Stash is running like normal, press [Enter] to recreate the configuration file for this script"
     Set-Config
 }
-
-#If the Stash Database path checks out, let's confirm that the schema in the database aligns with what this script is written for. 
-else{
-    $Query = "SELECT version FROM schema_migrations"
-    $KnownSchemaVersion = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
-    $KnownSchemaVersion = $KnownSchemaVersion.version
-
-    $Query = "SELECT version FROM schema_migrations"
-    $StashDB_SchemaVersion = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-    $StashDB_SchemaVersion = $StashDB_SchemaVersion.version
-    
-    if (($StashDB_SchemaVersion -ne $KnownSchemaVersion) -or ($StashDB_SchemaVersion -notmatch '^\d+$')){
-        if($StashDB_SchemaVersion -gt $KnownSchemaVersion){
-            write-host "`nYour Stash database has a newer database schema than expected!"
-            write-host "(Expected version $KnownSchemaVersion, your Stash database is running Stash schema version $StashDB_SchemaVersion)"
-            write-host "Checking for incompatibility...`n"
-            
-            #Get all tables from the new database
-            $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%'"
-            $Stash_Tables = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-            #If any crucially important tables are modified lets track that with this bool
-            $IncompatibleDB = $false
-
-            foreach ($Stash_Table in $Stash_Tables){
-                $Stash_Table_Name = $Stash_Table.name
-                
-                #Check to see if this table exists in the Stash Example database
-                $Query = "SELECT name FROM sqlite_master WHERE type ='table' AND name NOT LIKE 'sqlite_%' AND name = '"+$Stash_Table_Name+"'"
-                $TableExistance = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
-
-                #If the table exists in the Stash Example database, let's check each column and ensure we have matches
-                if ($null -ne $TableExistance){
-                    
-                    #These two queries returns all columns from a given table name. We grab all columns from both the user provided Stash db and the stash example db for comparison purposes
-                    $Query = "PRAGMA table_info($Stash_Table_Name)"
-                    $NewerColumns = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-                    $Query = "PRAGMA table_info($Stash_Table_Name)"
-                    $OlderColumns = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashExampleDB
-
-                    #We also want to track the tables that do not get modified
-                    $TableWasModified = $false
-                    
-                    #Now we iterate through the columns of the user provided Stash DB and see if there's any columns that cannot be found in this table.
-                    foreach($column in $NewerColumns.name) {
-                        if ($olderColumns.name -notcontains $column) {
-
-                            #Flip the bool so that we know that this table has been modified
-                            $TableWasModified = $true
-                        }
-                    } 
-                    #Now we check to see if there are columns in the Stash Example DB that no longer exist in the new table
-                    foreach($column in $OlderColumns.name) {
-                        if ($newerColumns.name -notcontains $column) {
-                            
-                            #Flip the bool so that we know that this table has been modified
-                            $TableWasModified = $true
-                        }
-                    } 
-                    if ($TableWasModified -eq $true){
-                        switch($Stash_Table_Name){
-                            "scenes" {$IncompatibleDB = $True;write-host "- Hmm...The 'Scenes' table has been modified in this new db schema"}
-                            "images"{$IncompatibleDB = $True;write-host "- Hmm...The 'Images' table has been modified in this new db schema"}
-                            "performers"{$IncompatibleDB = $True;write-host "- Hmm...The 'Performers' table has been modified in this new db schema"}
-                            "studios" {$IncompatibleDB = $True;write-host "- Hmm...The 'Studios' table has been modified in this new db schema"}
-                            "folders" {$IncompatibleDB = $True;write-host "- Hmm...The 'Folders' table has been modified in this new db schema"}
-                            "files" {$IncompatibleDB = $True;write-host "- Hmm...The 'Files' table has been modified in this new db schema"}
-                            "performers_scenes"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_scenes' table has been modified in this new db schema"}
-                            "performers_images"{$IncompatibleDB = $True;write-host "- Hmm...The 'performers_images' table has been modified in this new db schema"}
-                        }
-                    }
-                }
-            }
-
-            
-            if($IncompatibleDB -eq $true){
-                
-                write-host "`nFor the reason(s) mentioned above, your database may be incompatible with this script" -ForegroundColor red
-                write-host "Running this script may change your database in unexpected, untested ways. "
-
-                write-host "`n1 - Press [Enter] to exit."
-                write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
-
-                $userinput = read-host "`nWhat would you like to do?"
-                if($userinput -notmatch "Never tell me the odds!"){
-                    write-host "Exiting..."
-                    exit
-                }
-                #User wants to continue, so lets clear the host and make it look like we're starting fresh
-                clear-host
-                write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
-            }
-            else{
-                write-host "`nNo incompatibilites detected!" -ForegroundColor green
-                write-host "While no incompatibilities were detected, please look for an`nupdated version of this script just to be safe."
-                read-host "`nPress [Enter] to continue"
-            }
-        }
-        elseif ($StashDB_SchemaVersion -lt $KnownSchemaVersion) {
-            write-host "Your database is unfortunately a bit outdated!" -ForegroundColor red
-            write-host "Please upgrade your Stash instance to the latest version, then re-run this script."
-
-            write-host "`n1 - Press [Enter] to exit."
-            write-host "2 - You may override this warning by entering the phrase 'Never tell me the odds!', then pressing [Enter]"
-            
-
-            $userinput = read-host "`nWhat would you like to do?"
-            if($userinput -notmatch "Never tell me the odds!"){
-             write-host "Exiting..."
-                exit
-            }
-            #User wants to continue, so lets clear the host and make it look like we're starting fresh
-            clear-host
-            write-host "- OnlyFans Metadata to Stash Database PoSH Script - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n"
-        }
-        else {
-            write-host "Hmm... this Stash database is not of a schema that this script was expecting. " -ForegroundColor red
-            read-host "Press [Enter] to exit"
-            exit
-        }
-    }
-}
-
 
 if (!(test-path $PathToOnlyFansContent)){
     #Couldn't find the path? Send the user to recreate their config file with the set-config function
     read-host "Hmm...The defined path to your OnlyFans content does not seem to exist at the location specified in your config file.`n($PathToOnlyFansContent)`n`nPress [Enter] to run through the config wizard"
     Set-Config
 }
+if($ConsoleVerbosity -notmatch '\bverbose\b|\bnormal\b'){
+    read-host "Hmm...looks like the console output verbosity setting isn't defined in the config file. No worries!`n`n Press [Enter] to run through the config wizard"
+    Set-Config
+}
 
 
 if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     #Something goofy with the variable? Send the user to recreate their config file with the set-config function
-    read-host "Hmm...The Metadata Match Mode parameter isn't well defined in your configuration file.`n`nPress [Enter] to run through the config wizard"
+    read-host "Hmm...The Metadata Match Mode parameter isn't well defined in your configuration file. No worries!`n`nPress [Enter] to run through the config wizard"
     Set-Config
 }
 else {
-    write-host "By JuiceBox`n`n----------------------------------------------------`n"
-    write-host "* Metadata Match Mode:        $searchspecificity`n* Path to OnlyFans Media:     $PathToOnlyFansContent`n* Path to Stash's db:         $PathToStashDatabase`n"
-    write-host "----------------------------------------------------`n"
-    write-host "What would you like to do?"
-    write-host " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
-    write-host " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
-    write-host " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
-    write-host " 4 - Change Settings"
-
-    $userscanselection = 0;
-    do {
-        $userscanselection = read-host "`nEnter selection"
-    }
-    while (($userscanselection -notmatch "[1-4]"))
-
-
-
-    #Code for parsing metadata files
-    if($userscanselection -eq 1){
-
-        #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
-        $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
-        if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
-            write-host "OK, no backup will be created." 
-        }
-        else{
-            $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
-            $PathToStashDatabaseBackup = $PathToStashDatabaseBackup+"\stash-go_OnlyFans_Import_BACKUP-"+$(get-date -f yyyy-MM-dd)+".sqlite"
-            read-host "OK, A backup will be created at`n $PathToStashDatabaseBackup`n`nPress [Enter] to generate backup"
-
-            try {
-                Copy-Item $PathToStashDatabase -Destination $PathToStashDatabaseBackup
-            }
-            catch {
-                read-host "Unable to make a backup! Permissions error? Press [Enter] to exit"
-                exit
-            }
-            write-host "...Done! A backup was successfully created."
-        }
-
-        write-host "`nScanning for existing OnlyFans Metadata Database files..."
-
-        #Finding all of our metadata databases. 
-        $collectionOfDatabaseFiles = Get-ChildItem -Path $PathToOnlyFansContent -Recurse | where-object {$_.name -in "user_data.db","posts.db"}
-        
-        #For the discovery of a single database file
-        if ($collectionOfDatabaseFiles.count -eq 1){
-            $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path -leaf
-            if ($performername -eq "metadata"){
-                $performername = $collectionOfDatabaseFiles.FullName | split-path | split-path | split-path -leaf
-            }
-            
-            write-host "Discovered a metadata database for '$performername' "
-        }
-
-        #For the discovery of multiple database files
-        elseif ($collectionOfDatabaseFiles.count -gt 1){
-            
-            write-host "Discovered multiple metadata databases"
-            write-host "0 - Process metadata for all performers"
-
-            $i=1 # just used cosmetically
-            Foreach ($OFDBdatabase in $collectionOfDatabaseFiles){
-                $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
-                }
-                write-host "$i - $performername"
-                $i++
-            }
-            $selectednumber = read-host "`nWhich performer would you like to select [Enter a number]"
-
-            #Checking for bad input
-            while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $collectionOfDatabaseFiles.Count)){
-                $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $collectionOfDatabaseFiles.Count".`nWhich performer would you like to select [Enter a number]"
-            }
-
-            #If the user wants to process all performers, let's let them.
-            if ([int]$selectednumber -eq 0){
-                write-host "OK, all performers will be processed."
-            }
-            else{
-                $selectednumber = $selectednumber-1 #Since we are dealing with a 0 based array, i'm realigning the user selection
-                $performername = $collectionOfDatabaseFiles[$selectednumber].FullName | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $collectionOfDatabaseFiles[$selectednumber].FullName | split-path | split-path | split-path -leaf #Basically if we hit the metadata folder, go a folder higher and call it the performer
-                }
-                
-                #Specifically selecting the performer the user wants to parse.
-                $collectionOfDatabaseFiles = $collectionOfDatabaseFiles[$selectednumber]
-
-                write-host "OK, the performer '$performername' will be processed."
-            }
-        }
-
-        #Only try to parse metadata from metadata database files if we've discovered a database file.
-        if ($collectionOfDatabaseFiles){
-
-            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
-            read-host "`nPress [Enter] to begin"
-
-            $numModified = 0
-            $numUnmodified = 0
-            $nummissingfiles = 0
-            $scriptStartTime = get-date
-
-            #Getting the OnlyFans Studio ID or creating it if it does not exist.
-            $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
-            $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-            #If the Studio does not exist, create it
-            if(!$StashDB_StudioQueryResult){
-
-                #Creating a studio also requires a updated_at/created_at timestamp
-                $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
-
-                #The MD5 hash of the studio name "OnlyFans" is a known string. I've skipped out on generating this value
-                $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com','13954e64886e8317d2df22fec295e924', '"+$timestamp+"', '"+$timestamp+"')"
-                $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                write-host "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
-
-                $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
-                $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-                $OnlyFansStudioID = $StashDB_StudioQueryResult.id
-            }
-            #Otherwise, the studio ID can be attained from the SELECT query
-            else {
-                $OnlyFansStudioID = $StashDB_StudioQueryResult.id
-            }
-            
-            foreach ($currentdatabase in $collectionOfDatabaseFiles) {
-
-                #Gotta reparse the performer name as we may be parsing through a full collection of performers. 
-                #Otherwise you'll end up with a whole bunch of performers having the same name
-                $performername = $currentdatabase.fullname | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $currentdatabase.fullname | split-path | split-path | split-path -leaf
-                }
-                write-host "`nParsing media for $performername" -ForegroundColor Cyan
-            
-                #Conditional tree for finding the performer ID using either the name or the alias (or creating the performer if neither option work out)
-                $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                if($StashDB_PerformerQueryResult){
-                    $PerformerID = $StashDB_PerformerQueryResult.id
-                }
-                else{
-                    #No luck using the name to track down the performer ID, let's try the alias
-                    $Query = "SELECT id FROM performers WHERE aliases LIKE '%"+$performername+"%'"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                    
-                    if($StashDB_PerformerQueryResult){
-                        $PerformerID = $StashDB_PerformerQueryResult.id
-                    }
-                    #Otherwise both options failed so let's create the performer
-                    else{   
-                        #Stash's DB requires an MD5 hash of the name of the performer for performer creation
-                        $stringAsStream = [System.IO.MemoryStream]::new()
-                        $writer = [System.IO.StreamWriter]::new($stringAsStream)
-                        $writer.write($performername)
-                        $writer.Flush()
-                        $stringAsStream.Position = 0
-                        $performernamemd5 = Get-FileHash -Algorithm md5 -InputStream $stringAsStream | Select-Object Hash
-
-                        #Creating a performer also requires a updated_at/created_at timestamp
-                        $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
-
-                        #Creating the performer in Stash's db
-                        $Query = "INSERT INTO performers (checksum, name, url, created_at, updated_at) VALUES ('"+$performernamemd5.hash+"', '"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"')"
-                        Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                        write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
-
-                        $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                        $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                        $PerformerID = $StashDB_PerformerQueryResult.id
-                    }       
-                }
-                
-                #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
-                $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
-                $OF_DBpath = $currentdatabase.fullname 
-                $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
-                foreach ($OFDBMedia in $OFDBQueryResult){
-
-                    #Generating the URL for this post
-                    $linktoperformerpage = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
-                    
-                    #Reformatting the date to something stash appropriate
-                    $creationdatefromOF = $OFDBMedia.created_at
-                    $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
-                    
-                    $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
-                    $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
-                    $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
-                    $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
-
-                    #Storing separate variants of these variables with apostrophy sanitization so they don't ruin our SQL queries
-                    $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
-                    $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
-         
-
-                    #Note that the DigitalCriminals OF downloader quantifies gifs as videos for some reason
-                    #Since Stash doesn't (and rightfully so), we need to account for this
-                    if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
-                        $mediatype = "video"
-                    }
-                    #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
-                    elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
-                        $mediatype = "image"
-                    }
-
-
-                    #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
-                    #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
-                    if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%'  AND size ="+$OFDBfilesize
-                    }
-
-                    #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
-                    elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%'"
-                    }
-                    #Low specificity, search for videos based on filesize only
-                    elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size ="+$OFDBfilesize
-                    }
-
-                    #Low specificity, search for images based on filesize only
-                    elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize
-                    }
-
-                    #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                    elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFDBdirectoryForQuery+"' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                    }
-
-                    #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                    else{
-                        $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path ='"+$OFDBdirectoryForQuery+"' AND files.basename ='$OFDBfilenameForQuery'"
-                    }
-                    
-                    $StashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-           
-                    #If our search for a matching media in the Stash DB is empty let's check to see if the file exists on the file system 
-                    if ($null -eq $StashDB_QueryResult){
-                         if (Test-Path $OFDBFullFilePath){
-                            write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                        }
-                        #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
-                        else{
-                            write-host "`n### INFO ###`nThere's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                            Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
-                            $nummissingfiles++
-                        }
-                    }
-
-                    #Otherwise we have found a match! let's process each matching result and add the metadata we've found
-                    else{
-
-                        #Before processing, and for the sake of accuracy, if there are multiple filesize matches (aka modes low and normal), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
-                        if ($StashDB_QueryResult.length -gt 0){
-                            #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                            if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE '%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                            elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size ="+$OFDBfilesize+" AND path LIKE'%"+$performername+"%' AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize 
-                            }
-                            #Low specificity, search for videos based on filesize only (and filename in this instance)
-                            elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            #Low specificity, search for images based on filesize only (and filename in this instance)
-                            elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
-                                $Query = "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE AND files.basename ='"+$OFDBfilenameForQuery+"' AND files.size ="+$OFDBfilesize
-                            }
-
-                            $ExtendedStashDB_QueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-
-                            #If we have a match, substitute it in and lets get that metadata into the Stash DB
-                            if($ExtendedStashDB_QueryResult){
-                                $StashDB_QueryResult = $ExtendedStashDB_QueryResult
-                            } 
-                        }
-                     
-                        #Creating the title we want for the media
-                        $proposedtitle = "$performername - $creationdatefromOF"
-                        
-                        #Sanitizing the text for apostrophes so they don't ruin our SQL query
-                        $detailsToAddToStash = $OFDBMedia.text
-                        $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
-                        $modtime = get-date -format yyyy-MM-ddTHH:mm:ssK #Determining what the update_at time should be
-
-                        #Let's check to see if this is a file that already has metadata.
-                        #For Videos, we check the title and the details
-                        #For Images, we only check the title (for now)
-                        #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
-
-                        if ($mediatype -eq "video"){
-                            $filewasmodified = $false
-
-                            #Updating scene metadata if necessary
-                            if (($StashDB_QueryResult.scenes_title -ne $proposedtitle) -or ($StashDB_QueryResult.scenes_details -ne $OFDBMedia.text)){
-                                $Query = "UPDATE scenes SET title='"+$proposedtitle+"', details='"+$detailsToAddToStash+"', date='"+$creationdatefromOF+"', updated_at='"+$modtime+"', url='"+$linktoperformerpage+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult.scenes_id+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-                            
-                            #Updating Stash with the performer for this media if one is not already associated
-                            $Query = "SELECT * FROM performers_scenes WHERE performer_id ="+$PerformerID+" AND scene_id ="+$StashDB_QueryResult.scenes_id
-                            $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            if(!$StashDB_PerformerUpdateResult){
-                                $Query = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerid+","+$StashDB_QueryResult.scenes_id+")"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-
-                            #Providing user feedback and adding to the modified counter if necessary
-                            if ($filewasmodified){
-                                write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
-                                $numModified++  
-                            }
-                            else{
-                                write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                                $numUnmodified++
-                            }
-
-                            
-                        }
-                        else{ #For images
-                            $filewasmodified = $false
-
-                            #Updating image metadata if necessary
-                            if ($StashDB_QueryResult.images_title -ne $proposedtitle){
-                                $Query = "UPDATE images SET title='"+$proposedtitle+"', updated_at='"+$modtime+"', studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$StashDB_QueryResult.images_id+"'"
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-
-                            #Updating Stash with the performer for this media if one is not already associated
-                            $Query = "SELECT * FROM performers_images WHERE performer_id ="+$PerformerID+" AND image_id ="+$StashDB_QueryResult.images_id
-                            $StashDB_PerformerUpdateResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            if(!$StashDB_PerformerUpdateResult){
-                                $Query = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerid+","+$StashDB_QueryResult.images_id+")"
-                                
-                                Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                                $filewasmodified = $true
-                            }
-
-                            #Providing user feedback and adding to the modified counter if necessary
-                            if ($filewasmodified){
-                                write-host "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
-                                $numModified++  
-                            }
-                            else{
-                                write-host "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                                $numUnmodified++
-                            }
-                        }
-                    } 
-                }
-            }
-        }
-        if ($nummissingfiles -gt 0){
-            write-host "`n- Missing Files -" -ForegroundColor Cyan
-            write-host "There is available metadata for $nummissingfiles files in your OnlyFans Database that cannot be found in your Stash Database."
-            write-host "    - Be sure to review the MissingFiles log."
-            write-host "    - There's a good chance you may need to rescan your OnlyFans folder in Stash and/or redownload those files"
-        }
-
-        write-host "`n****** Import Complete ******"-ForegroundColor Cyan
-        write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
-
-        #Some quick date arithmetic to calculate elapsed time
-        $scriptEndTime = Get-Date
-        $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
-        if($scriptduration -ge 60){
-            [int]$Minutes = $scriptduration / 60
-            [int]$seconds = $scriptduration % 60
-            if ($minutes -gt 1){
-                write-host "- This script took $minutes minutes and $seconds seconds to execute"
-            }
-            else{
-                write-host "- This script took $minutes minute and $seconds seconds to execute"
-            }
-        }
-        else{
-            write-host "- This script took $scriptduration seconds to execute"
-        }
-    }
-   
-
-###Code for the "No Metadata Database" feature
-    elseif($userscanselection -eq 2){
-
-        write-host "`n- Quick Tips - " -ForegroundColor Cyan
-        write-host "    - This script will try and determine performer names for discovered files based on file path."
-        write-host "    - Files that already have metadata in Stash will be ignored."
-        write-host "    - Please be sure to NOT scan folders that do not contain OnlyFans content."
-        write-host "    - This feature will likely not work well for Docker users due to path mismatches!"
-
-        #Since we're editing the Stash database directly, playing it safe and asking the user to back up their database
-        $backupConfirmation = Read-Host "`nWould you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
-        if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
-            write-host "OK, no backup will be created." 
-        }
-        else{
-            $PathToStashDatabaseBackup = Split-Path $PathToStashDatabase
-            $PathToStashDatabaseBackup = $PathToStashDatabaseBackup+"\stash-go_OnlyFans_Import_BACKUP-"+$(get-date -f yyyy-MM-dd)+".sqlite"
-            read-host "OK, A backup will be created at`n $PathToStashDatabaseBackup`n`nPress [Enter] to generate backup"
-
-            try {
-                Copy-Item $PathToStashDatabase -Destination $PathToStashDatabaseBackup
-            }
-            catch {
-                read-host "Unable to make a backup! Permissions error? Press [Enter] to exit"
-                exit
-            }
-            write-host "...Done! A backup was successfully created."
-        }
-
-        write-host "`nThe following path will be parsed:`n - $PathToOnlyFansContent"
-        read-host "`nPress [Enter] to begin"
-
-        #A buffer for Performer Name and Performer ID to minimize how often we reach out to the DB. 
-        $performerbuffer = @('performername',0)
-        
-        #Because of how fast this script runs, we need a buffer to limit how often we write out to the DB to avoid db write issues
-        #We use a counter to keep track of when the buffer is full
-        $QueryBuffer = [Object[]]::new(20)
-        $QueryBufferCounter = 0
-
-        #Grabbing the date so we can show elapsed time later
-        $scriptStartTime = get-date
-
-        $numModified = 0
-        $numUnmodified = 0
-
-       #Getting the OnlyFans Studio ID or creating it if it does not exist.
-       $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
-       $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-       #If the Studio does not exist, create it
-       if(!$StashDB_StudioQueryResult){
-
-           #Creating a studio also requires a updated_at/created_at timestamp
-           $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
-
-           #The MD5 hash of the studio name "OnlyFans" is a known string. I've skipped out on generating this value
-           $Query = "INSERT INTO studios (name, url, checksum, created_at, updated_at) VALUES ('OnlyFans','https://www.onlyfans.com','13954e64886e8317d2df22fec295e924', '"+$timestamp+"', '"+$timestamp+"')"
-           $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-           write-host "`n### INFO ###`nAdded the OnlyFans studio to Stash's database" -ForegroundColor Cyan
-
-           $Query = "SELECT id FROM studios WHERE name LIKE 'OnlyFans%'"
-           $StashDB_StudioQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-           $OnlyFansStudioID = $StashDB_StudioQueryResult.id
-       }
-       #Otherwise, the studio ID can be attained from the SELECT query
-       else {
-           $OnlyFansStudioID = $StashDB_StudioQueryResult.id
-       }
-
-        $OFfilestoscan = get-childitem $pathToOnlyFansContent -file -recurse -exclude *.db 
-
-        #Iterate through all the files we found
-        for($i=0; $i -lt $OFfilestoscan.count; $i++){
-            $OFFile = $OFfilestoscan[$i]
-
-            #When we run SQL queries later, we will need the folder path and the filename split out.
-            $OFmediaParentFolder = split-path $OFFile
-            $OFmediaFilename = split-path $OFFile -leaf
-
-            $mediatype = $null
-            #We need to determine if we're working with an image or not
-            switch ($OFFile.extension){
-                '.png'{$mediatype = "image"}
-                '.jpg'{$mediatype = "image"}
-                '.jpeg'{$mediatype = "image"}
-                '.gif'{$mediatype = "image"}
-                '.webp'{$mediatype = "image"}
-                '.jfif'{$mediatype = "image"}
-                default {$mediatype = "video"} #When Stash finally supports audio, this binary video/image stuff will need to change.
-            }
-            
-            #A bit hacky, but this lets us check to see whether or not our file path uses / or \ based on operating system
-            #Writing it this way with a second if statement avoids an error from machines that are running Windows Powershell and not Powershell Core
-            if($PSVersionTable.properties.name -match "os"){
-                if(!($PSVersionTable.os -like "*Windows*")){
-                    $patharray = $OFFile.tostring().Split("/")
-                }
-            }
-            else{
-                $patharray = $OFFile.tostring().Split("\")
-            }
-
-
-            #So the way this works is basically that we have a known list of what the filepaths for onlyfans content should look like. 
-            #Therefore we can work backwards from the file itself, iterating through the path until we find something unexpected.
-            #That unexpected folder name will be our performer name.
-            $patharrayposition = $patharray.count-1
-            $foundperformer = $false
-
-            switch($patharray[$patharrayposition-1]){
-                "videos"{$patharrayposition--}
-                "images" {$patharrayposition--}
-                "avatars" {$patharrayposition--}
-                "headers" {$patharrayposition--}
-                default {$performername = $patharray[$patharrayposition-1]; $foundperformer = $true}
-            }
-
-            if(!$foundperformer){
-                switch($patharray[$patharrayposition-1]){
-                    "paid"{$patharrayposition--}
-                    "free" {$patharrayposition--}
-                    "profile" {$patharrayposition--}
-                    default {$performername = $patharray[$patharrayposition-1]; $foundperformer = $true}
-                }
-            }
-
-            if(!$foundperformer){
-                switch($patharray[$patharrayposition-1]){
-                    "posts"{$patharrayposition--}
-                    "messages" {$patharrayposition--}
-                    "stories" {$patharrayposition--}
-                    default {$performername = $patharray[$patharrayposition-1]; $foundperformer = $true}
-                }
-            }
-            if(!$foundperformer){
-                switch($patharray[$patharrayposition-1]){
-                    "archived"{$patharrayposition--}
-                    default {$performername = $patharray[$patharrayposition-1]}
-                }
-            }
-            if(!$foundperformer){
-                $performername = $patharray[$patharrayposition-1] 
-            }
-
-            #Looking in the stash DB for the current filename we're parsing
-            if($mediatype -eq "image"){
-                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title, images.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
-                $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-                $mediaid = $StashDBSceneQueryResult.images_id
-            }
-            else {
-                $Query = "SELECT folders.path, files.basename, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.studio_id FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path='"+$OFmediaParentFolder+"' AND files.basename ='"+$OFmediaFilename+"'"
-                $StashDBSceneQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-                $mediaid = $StashDBSceneQueryResult.scenes_id
-            }
-
-            #If Stash has this file, we can work with it.
-            if ($StashDBSceneQueryResult){
-
-                #If we don't have the performer information in the buffer, look for it or create the performer
-                if ($performerbuffer[0] -ne $performername){
-                    $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-
-                    #If the performer doesn't exist, try looking at aliases
-                    if(!$StashDB_PerformerQueryResult){
-                        $Query = "SELECT id FROM performers WHERE aliases LIKE '%"+$performername+"%'"
-                        $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                        
-                        #This performer definitely does not exist so create one
-                        if(!$StashDB_PerformerQueryResult){
-
-                            #Stash's DB requires an MD5 hash of the name of the performer for performer creation so...here's that
-                            $stringAsStream = [System.IO.MemoryStream]::new()
-                            $writer = [System.IO.StreamWriter]::new($stringAsStream)
-                            $writer.write($performername)
-                            $writer.Flush()
-                            $stringAsStream.Position = 0
-                            $performernamemd5 = Get-FileHash -Algorithm md5 -InputStream $stringAsStream | Select-Object Hash
-
-                            #Creating a performer also requires a updated_at/created_at timestamp
-                            $timestamp = get-date -format yyyy-MM-ddTHH:mm:ssK
-
-                            #Creating the performer in Stash's db
-                            $Query = "INSERT INTO performers (checksum, name, url, created_at, updated_at) VALUES ('"+$performernamemd5.hash+"', '"+$performername+"', 'https://www.onlyfans.com/"+$performername+"', '"+$timestamp+"', '"+$timestamp+"');"
-                            Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                            write-host "`n### INFO ###`nAdded a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
-                        }
-                        #Running a select statement now that our insert is complete so that we can get the performer ID
-                        $Query = "SELECT id FROM performers WHERE name LIKE '"+$performername+"'"
-                        $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                    }
-                        $performerbuffer[0] = $performername
-                        $performerbuffer[1] = $StashDB_PerformerQueryResult.id
-                }
-                
-                #Checking to see if we have a related performer for this media
-                if($mediatype -eq "image"){
-                    $Query = "SELECT * FROM performers_images WHERE performer_id = "+$performerbuffer[1]+" AND image_id = $mediaid"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase 
-                }
-                else {
-                    $Query = "SELECT * FROM performers_scenes WHERE performer_id = "+$performerbuffer[1]+" AND scene_id = $mediaid"
-                    $StashDB_PerformerQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $PathToStashDatabase
-                }
-
-                #If this media doesn't have a related performer, let's go ahead and add one
-                if(!$StashDB_PerformerQueryResult){
-                    if($mediatype -eq "image"){
-                        $QueryBuffer[$QueryBufferCounter] = "INSERT INTO performers_images (performer_id, image_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
-                        $QueryBufferCounter++
-                    }
-                    else{
-                        $QueryBuffer[$QueryBufferCounter] = "INSERT INTO performers_scenes (performer_id, scene_id) VALUES ("+$performerbuffer[1]+","+$mediaid+");"
-                        $QueryBufferCounter++
-                    }
-                    write-host "- Added metadata to Stash's database for the following file:`n   $OFFile" 
-                    $numModified++
-                }
-                else {
-                    write-host "- This file already has metadata, moving on...`n   $OFFile"
-                    $numUnmodified++
-                }
-                
-                #If this media doesn't have a related studio, let's go ahead and add one.
-                if($StashDBSceneQueryResult.studioID -ne $OnlyFansStudioID){
-                    if($mediatype -eq "image"){
-                        $QueryBuffer[$QueryBufferCounter] = "UPDATE images SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
-                        $QueryBufferCounter++
-                    }
-                    else{
-                        $QueryBuffer[$QueryBufferCounter] = "UPDATE scenes SET studio_id='"+$OnlyFansStudioID+"' WHERE id='"+$mediaid+"';"
-                        $QueryBufferCounter++
-                    }
-                }
-            }
-            #If this is the last time we're going to iterate over this collection of discovered files OR if our buffer is full enough
-            #Please note the number of potential queries that can execute with each loop and subtract that number from the maximum size of the array to get the number to set in order to trigger a buffer refresh. 
-            #For example, two potential queries (an update and an insert) with a max array size of 20 would give you a reset trigger of 18
-            if(($i -eq $OFfilestoscan.count) -or ($QueryBufferCounter -gt 18)){
-
-                #Nested loop to look for duplicates in our Query buffer before we create the combined query that will go to Stash
-                $QueryForStash = "" #Just making sure the variable is clear before creating the string
-                For ($a=0; $a -le $QueryBuffer.count; $a++) {
-                    $numduplicates = -1 #We set this to -1 because at least one match should be discovered (otherwise it wouldn't be an entry in the array)
-
-                    For ($b=0; $b -le $QueryBuffer.count; $b++) {
-                        if($QueryBuffer[$b] -eq $QueryBuffer[$a]){
-                            $numduplicates++
-                        }
-                    }
-                    #If there are no dupes of this query, let's add it to the larger query.
-                    if($numduplicates -eq 0){
-                        $QueryForStash = $QueryForStash + $QueryBuffer[$a]
-                    }
-                }
-
-                #Run the query against the db, and flush the buffer
-                Invoke-SqliteQuery -Query $QueryForStash -DataSource $PathToStashDatabase
-                $QueryBuffer = [Object[]]::new(20)
-                $QueryBufferCounter = 0
-                
-            }
-        }
-        write-host "`n****** Import Complete ******"-ForegroundColor Cyan
-        write-host "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
-
-        #Some quick date arithmetic to calculate elapsed time
-        $scriptEndTime = Get-Date
-        $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
-        if($scriptduration -ge 60){
-            [int]$Minutes = $scriptduration / 60
-            [int]$seconds = $scriptduration % 60
-            if ($minutes -gt 1){
-                write-host "- This script took $minutes minutes and $seconds seconds to execute"
-            }
-            else{
-                write-host "- This script took $minutes minute and $seconds seconds to execute"
-            }
-        }
-        else{
-            write-host "- This script took $scriptduration seconds to execute"
-        }
-    }
-
-    elseif($userscanselection -eq 3){
-        $pathtosanitizerscript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_Sanitizer.ps1"
-        invoke-expression $pathtosanitizerscript
-    }
-    else{
-        #User has requested to be sent to the configuration wizard
-        Set-Config
-    }
+    clear-host
+    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.5 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+    write-output "By JuiceBox`n`n----------------------------------------------------`n"
+    write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
+    write-output "* Metadata Match Mode:        $searchspecificity"
+    write-output "* Stash URL:                  $StashGQL_URL`n"
+    write-output "----------------------------------------------------`n"
+    write-output "What would you like to do?"
+    write-output " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
+    write-output " 2 - Add Metadata to my Stash without using OnlyFans Metadata Database(s)"
+    write-output " 3 - Generate a redacted, sanitized copy of my OnlyFans Metadata Database file(s)"
+    write-output " 4 - Change Settings"
+}
+
+$userscanselection = 0;
+do {
+    $userscanselection = read-host "`nEnter selection"
+}
+while (($userscanselection -notmatch "[1-4]"))
+
+switch ($userscanselection){
+    1 {Add-MetadataUsingOFDB}
+    2 {Add-MetadataWithoutOFDB}
+    3 {invoke-expression $pathtosanitizerscript}
+    4 {Set-Config}
 }
