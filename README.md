@@ -20,7 +20,7 @@
 - The [PSSQLite](https://github.com/RamblingCookieMonster/PSSQLite) and [PSGraphQL](https://www.powershellgallery.com/packages/PSGraphQL/1.6.0) PowerShell modules
 
 
-## 📖 Installation Guide
+## 📖 How to Run
 
 1. Ensure the latest version of [Microsoft Powershell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3) is installed. 
 5. Open a Powershell prompt in the same directory as the script and run the command `.\OFMetadataToStash.ps1` to start the short configuration wizard
