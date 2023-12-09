@@ -758,13 +758,18 @@ function Add-MetadataUsingOFDB{
                         } 
                     }
 
-                    #Creating the title we want for the media
+                    #Creating the title we want for the media, and defining Stash details for this media.
                     $proposedtitle = "$performername - $creationdatefromOF"
-
-                    #Sanitizing the text for apostrophes so they don't ruin our queries
                     $detailsToAddToStash = $OFDBMedia.text
+
+                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " or backslashs \ very well so let's do it manually for the sake of our JSON query
                     $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                    $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
+                    $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
+
                     $proposedtitle = $proposedtitle.replace("'","''")
+                    $proposedtitle = $proposedtitle.replace("\","\\")
+                    $proposedtitle = $proposedtitle.replace('"','\"')
 
                     #Let's check to see if this is a file that already has metadata.
                     #For Videos, we check the title and the details
