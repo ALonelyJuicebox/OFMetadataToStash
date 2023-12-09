@@ -578,6 +578,8 @@ function Add-MetadataUsingOFDB{
             $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
             $OF_DBpath = $currentdatabase.fullname 
             $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
+            $boolGetPerformerImage = $true
+
             foreach ($OFDBMedia in $OFDBQueryResult){
 
                 #Generating the URL for this post
@@ -609,7 +611,14 @@ function Add-MetadataUsingOFDB{
 
                 #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
                 if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
-                    continue #Skip to the next item in this foreach, user only wants to process videos
+                    #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
+                    if (!$boolGetPerformerImage){
+                        $boolGetPerformerImage = $false
+                        continue #Skip to the next item in this foreach, user only wants to process videos
+                    }
+
+                    
+                    
                 }
                 if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
                     continue #Skip to the next item in this foreach, user only wants to process images
