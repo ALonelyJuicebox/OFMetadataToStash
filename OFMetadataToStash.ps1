@@ -239,7 +239,8 @@ function Add-MetadataUsingOFDB{
             Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
         }
         catch{
-            write-host "(10) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(10) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -365,7 +366,8 @@ function Add-MetadataUsingOFDB{
         $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
     }
     catch{
-        write-host "(1) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+        write-host "(1) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
         read-host "Press [Enter] to exit"
         exit
     }
@@ -391,7 +393,8 @@ function Add-MetadataUsingOFDB{
             $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
         }
         catch{
-            write-host "(9) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(9) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -415,7 +418,8 @@ function Add-MetadataUsingOFDB{
             $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables 
         }
         catch{
-            write-host "(9a) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(9a) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -491,7 +495,8 @@ function Add-MetadataUsingOFDB{
                 $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
             }
             catch{
-                write-host "(2) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                write-host "(2) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                 read-host "Press [Enter] to exit"
                 exit
             }
@@ -518,7 +523,8 @@ function Add-MetadataUsingOFDB{
                     Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                 }
                 catch{
-                    write-host "(3) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(3) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -542,7 +548,8 @@ function Add-MetadataUsingOFDB{
                     $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                 }
                 catch{
-                    write-host "(22) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(22) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -647,7 +654,8 @@ function Add-MetadataUsingOFDB{
                     $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
                 }
                 catch{
-                    write-host "(4) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(4) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -705,7 +713,8 @@ function Add-MetadataUsingOFDB{
                             $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
                         }
                         catch{
-                            write-host "(5) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(5) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -755,7 +764,8 @@ function Add-MetadataUsingOFDB{
                             $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                         }
                         catch{
-                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -789,7 +799,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -825,8 +836,9 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
-                                read-host "Press [Enter] to exit"
+                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                read-host "Press [Enter] to exit" 
                                 exit
                             }
 
@@ -870,7 +882,8 @@ function Add-MetadataUsingOFDB{
                             $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                         }
                         catch{
-                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -904,7 +917,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -939,7 +953,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -1010,7 +1025,8 @@ function Add-MetadataUsingOFDB{
                     
                 }
                 catch{
-                    write-host "(11) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(11) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -1036,7 +1052,8 @@ function Add-MetadataUsingOFDB{
                         $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
                     }
                     catch{
-                        write-host "(12) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                        write-host "(12) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                         read-host "Press [Enter] to exit"
                         exit
                     }
