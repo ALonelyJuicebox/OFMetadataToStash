@@ -580,7 +580,13 @@ function Add-MetadataUsingOFDB{
             $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
             $boolGetPerformerImage = $true
 
+            $progressCounter = 1 #Used for the progress UI
             foreach ($OFDBMedia in $OFDBQueryResult){
+
+                #Let's help the user see how we are progressing through this metadata database
+                $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
+                Write-Progress -Activity "Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
+                $progressCounter++
 
                 #Generating the URL for this post
                 $linktoOFpost = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
