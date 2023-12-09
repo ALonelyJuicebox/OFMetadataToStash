@@ -1,5 +1,5 @@
 <h1 align="center">OnlyFans Metadata to Stash Powershell Script</h1>
-<p align="center"><img src="/readme_assets/oldtonew.png" width=70% height=70%></p>
+<p align="center"><img src="/readme_assets/oldtonew.png" width=80% height=80%></p>
 
 **OFMetadataToStash** is an OnlyFans metadata import tool for Stash, written in Powershell.
 
