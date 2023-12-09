@@ -127,7 +127,7 @@ function Set-Config{
     write-output "(3 of 4) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
+    write-output "    * Do you host Stash on Docker? Be sure to set this to low! `n"
     write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
     write-output "Option 2: Low    - Will match based only on a matching Filesize"
     write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
@@ -312,11 +312,11 @@ function Add-MetadataUsingOFDB{
             $i++
 
         }
-        $selectednumber = read-host "`nWhich performer would you like to select [Enter a number]"
+        $selectednumber = read-host "`n# Which performer would you like to select? [Enter a number]"
 
         #Checking for bad input
         while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $OFDatabaseFilesCollection.Count)){
-            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select [Enter a number]"
+            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select? [Enter a number]"
         }
 
         #If the user wants to process all performers, let's let them.
@@ -334,9 +334,19 @@ function Add-MetadataUsingOFDB{
             $OFDatabaseFilesCollection = $OFDatabaseFilesCollection[$selectednumber]
 
             write-output "OK, the performer '$performername' will be processed."
-            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
-            read-host "`nPress [Enter] to begin"
+            
         }
+        write-host "`n# Which types of media do you want to import metadata for?"
+        write-host "1 - Both Videos & Images`n2 - Only Videos`n3 - Only Images"
+
+        $mediaToProcessSelector = 0;
+        do {
+            $mediaToProcessSelector = read-host "Make your selection [1-3]"
+        }
+        while (($mediaToProcessSelector -notmatch "[1-3]"))
+
+        write-host "`nQuick Tips : `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+        read-host "`nPress [Enter] to begin"
     }
 
     #We use these values after the script finishes parsing in order to provide the user with some nice stats
@@ -597,6 +607,14 @@ function Add-MetadataUsingOFDB{
                     $mediatype = "image"
                 }
 
+                #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
+                if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
+                    continue #Skip to the next item in this foreach, user only wants to process videos
+                }
+                if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
+                    continue #Skip to the next item in this foreach, user only wants to process images
+                }
+                
                 #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
                 #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
                 if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
