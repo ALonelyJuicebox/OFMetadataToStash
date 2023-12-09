@@ -4,6 +4,7 @@
 -  **Bugfix** - Better character escaping for GQL queries, should help to address certain import issues.
 -  **Known Bug** - Haven't gotten around to refactoring the "No Metadata Database" mode.
 -  **Known Bug** - Setting the "match" mode to "High" may result in fewer matches than it should.
+
 **0.5 Release (12/7/2023)**
 -  **Feature** - Total refactor! Script now uses GraphQL to communicate with Stash. No more reliance on SQL queries running afoul of Stash schema changes!
 -  **Feature** - Now updates Performer images!
