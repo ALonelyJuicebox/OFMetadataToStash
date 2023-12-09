@@ -127,7 +127,7 @@ function Set-Config{
     write-output "(3 of 4) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * If you are a Docker user, I would avoid setting this mode to 'High'`n"
+    write-output "    * Do you host Stash on Docker? Be sure to set this to low! `n"
     write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
     write-output "Option 2: Low    - Will match based only on a matching Filesize"
     write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
@@ -239,7 +239,8 @@ function Add-MetadataUsingOFDB{
             Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
         }
         catch{
-            write-host "(10) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(10) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -311,11 +312,11 @@ function Add-MetadataUsingOFDB{
             $i++
 
         }
-        $selectednumber = read-host "`nWhich performer would you like to select [Enter a number]"
+        $selectednumber = read-host "`n# Which performer would you like to select? [Enter a number]"
 
         #Checking for bad input
         while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $OFDatabaseFilesCollection.Count)){
-            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select [Enter a number]"
+            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select? [Enter a number]"
         }
 
         #If the user wants to process all performers, let's let them.
@@ -333,9 +334,19 @@ function Add-MetadataUsingOFDB{
             $OFDatabaseFilesCollection = $OFDatabaseFilesCollection[$selectednumber]
 
             write-output "OK, the performer '$performername' will be processed."
-            write-host "`nQuick Tips: `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
-            read-host "`nPress [Enter] to begin"
+            
         }
+        write-host "`n# Which types of media do you want to import metadata for?"
+        write-host "1 - Both Videos & Images`n2 - Only Videos`n3 - Only Images"
+
+        $mediaToProcessSelector = 0;
+        do {
+            $mediaToProcessSelector = read-host "Make your selection [1-3]"
+        }
+        while (($mediaToProcessSelector -notmatch "[1-3]"))
+
+        write-host "`nQuick Tips : `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+        read-host "`nPress [Enter] to begin"
     }
 
     #We use these values after the script finishes parsing in order to provide the user with some nice stats
@@ -365,7 +376,8 @@ function Add-MetadataUsingOFDB{
         $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
     }
     catch{
-        write-host "(1) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+        write-host "(1) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
         read-host "Press [Enter] to exit"
         exit
     }
@@ -391,7 +403,8 @@ function Add-MetadataUsingOFDB{
             $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
         }
         catch{
-            write-host "(9) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(9) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -415,7 +428,8 @@ function Add-MetadataUsingOFDB{
             $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables 
         }
         catch{
-            write-host "(9a) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+            write-host "(9a) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
             read-host "Press [Enter] to exit"
             exit
         }
@@ -491,7 +505,8 @@ function Add-MetadataUsingOFDB{
                 $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
             }
             catch{
-                write-host "(2) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                write-host "(2) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                 read-host "Press [Enter] to exit"
                 exit
             }
@@ -518,7 +533,8 @@ function Add-MetadataUsingOFDB{
                     Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                 }
                 catch{
-                    write-host "(3) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(3) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -542,7 +558,8 @@ function Add-MetadataUsingOFDB{
                     $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                 }
                 catch{
-                    write-host "(22) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(22) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -561,6 +578,8 @@ function Add-MetadataUsingOFDB{
             $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
             $OF_DBpath = $currentdatabase.fullname 
             $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
+            $boolGetPerformerImage = $true
+
             foreach ($OFDBMedia in $OFDBQueryResult){
 
                 #Generating the URL for this post
@@ -590,6 +609,21 @@ function Add-MetadataUsingOFDB{
                     $mediatype = "image"
                 }
 
+                #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
+                if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
+                    #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
+                    if (!$boolGetPerformerImage){
+                        $boolGetPerformerImage = $false
+                        continue #Skip to the next item in this foreach, user only wants to process videos
+                    }
+
+                    
+                    
+                }
+                if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
+                    continue #Skip to the next item in this foreach, user only wants to process images
+                }
+                
                 #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
                 #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
                 if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
@@ -647,7 +681,8 @@ function Add-MetadataUsingOFDB{
                     $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
                 }
                 catch{
-                    write-host "(4) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(4) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -705,7 +740,8 @@ function Add-MetadataUsingOFDB{
                             $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
                         }
                         catch{
-                            write-host "(5) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(5) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -722,13 +758,18 @@ function Add-MetadataUsingOFDB{
                         } 
                     }
 
-                    #Creating the title we want for the media
+                    #Creating the title we want for the media, and defining Stash details for this media.
                     $proposedtitle = "$performername - $creationdatefromOF"
-
-                    #Sanitizing the text for apostrophes so they don't ruin our queries
                     $detailsToAddToStash = $OFDBMedia.text
+
+                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " or backslashs \ very well so let's do it manually for the sake of our JSON query
                     $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                    $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
+                    $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
+
                     $proposedtitle = $proposedtitle.replace("'","''")
+                    $proposedtitle = $proposedtitle.replace("\","\\")
+                    $proposedtitle = $proposedtitle.replace('"','\"')
 
                     #Let's check to see if this is a file that already has metadata.
                     #For Videos, we check the title and the details
@@ -755,7 +796,8 @@ function Add-MetadataUsingOFDB{
                             $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                         }
                         catch{
-                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -789,7 +831,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -825,8 +868,9 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
-                                read-host "Press [Enter] to exit"
+                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                read-host "Press [Enter] to exit" 
                                 exit
                             }
 
@@ -870,7 +914,8 @@ function Add-MetadataUsingOFDB{
                             $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                         }
                         catch{
-                            write-host "(6) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                             read-host "Press [Enter] to exit"
                             exit
                         }
@@ -904,7 +949,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(7) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -939,7 +985,8 @@ function Add-MetadataUsingOFDB{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
                             catch{
-                                write-host "(8) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
@@ -1010,7 +1057,8 @@ function Add-MetadataUsingOFDB{
                     
                 }
                 catch{
-                    write-host "(11) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                    write-host "(11) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                     read-host "Press [Enter] to exit"
                     exit
                 }
@@ -1036,7 +1084,8 @@ function Add-MetadataUsingOFDB{
                         $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
                     }
                     catch{
-                        write-host "(12) Error: Could not communicate to Stash using the URL in the config file ($StashGQL_URL)" -ForegroundColor red
+                        write-host "(12) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                         read-host "Press [Enter] to exit"
                         exit
                     }
