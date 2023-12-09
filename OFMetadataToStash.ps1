@@ -705,7 +705,7 @@ function Add-MetadataUsingOFDB{
                     }
                     #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
                     else{
-                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                         Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
                         $nummissingfiles++
                     }
@@ -762,14 +762,28 @@ function Add-MetadataUsingOFDB{
                     $proposedtitle = "$performername - $creationdatefromOF"
                     $detailsToAddToStash = $OFDBMedia.text
 
-                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " or backslashs \ very well so let's do it manually for the sake of our JSON query
+                    
+                    #Performers love to put links in their posts sometimes. Let's scrub those out in addition to any common HTML bits
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<br />","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href=","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href =","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('"/',"")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('">',"")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("</a>"," ")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
+
+                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
                     $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
                     $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
                     $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
-
+                    $detailsToAddToStash = $detailsToAddToStash.replace('“','\"') #literally removing the curly quote entirely
+                    $detailsToAddToStash = $detailsToAddToStash.replace('”','\"') #literally removing the curly quote entirely
+              
                     $proposedtitle = $proposedtitle.replace("'","''")
                     $proposedtitle = $proposedtitle.replace("\","\\")
                     $proposedtitle = $proposedtitle.replace('"','\"')
+                    $proposedtitle = $proposedtitle.replace('“','\"') #literally removing the curly quote entirely
+                    $proposedtitle = $proposedtitle.replace('”','\"') #literally removing the curly quote entirely
 
                     #Let's check to see if this is a file that already has metadata.
                     #For Videos, we check the title and the details
@@ -980,7 +994,7 @@ function Add-MetadataUsingOFDB{
                                     "urls": "'+$linktoOFpost+'"
                                 }
                             }'
-
+                            
                             try{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
