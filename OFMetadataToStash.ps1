@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata DB to Stash PoSH Script 0.6---
+---OnlyFans Metadata DB to Stash PoSH Script 0.7---
 
 AUTHOR
     JuiceBox
@@ -564,12 +564,14 @@ function Add-MetadataUsingOFDB{
                     exit
                 }
                 $PerformerID = $StashGQL_Result.data.findPerformers.performers[0].id
-                $creatednewperformer = $true
+                $creatednewperformer = $true #We'll use this later after images have been added in order to give the performer a profile picture
+                $boolGetPerformerImage = $true #We'll use this to get an image to use for the profile picture
                 write-host "`nInfo: Added a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
                 
             }
             else{
-                $creatednewperformer = $false #We'll use this later after images have been added in order to give the performer a profile picture
+                $creatednewperformer = $false 
+                $boolGetPerformerImage = $false
             }
 
 
@@ -578,9 +580,14 @@ function Add-MetadataUsingOFDB{
             $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
             $OF_DBpath = $currentdatabase.fullname 
             $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
-            $boolGetPerformerImage = $true
 
+            $progressCounter = 1 #Used for the progress UI
             foreach ($OFDBMedia in $OFDBQueryResult){
+
+                #Let's help the user see how we are progressing through this metadata database
+                $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
+                Write-Progress -Activity "Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
+                $progressCounter++
 
                 #Generating the URL for this post
                 $linktoOFpost = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
@@ -612,14 +619,14 @@ function Add-MetadataUsingOFDB{
                 #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
                 if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
                     #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
-                    if (!$boolGetPerformerImage){
-                        $boolGetPerformerImage = $false
+                    if ($boolGetPerformerImage){
+                        $boolGetPerformerImage = $false #Let's make sure we don't pull any more photos
+                    }
+                    else{
                         continue #Skip to the next item in this foreach, user only wants to process videos
                     }
-
-                    
-                    
                 }
+
                 if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
                     continue #Skip to the next item in this foreach, user only wants to process images
                 }
@@ -705,7 +712,7 @@ function Add-MetadataUsingOFDB{
                     }
                     #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
                     else{
-                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the OnlyFans script and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                         Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
                         $nummissingfiles++
                     }
@@ -762,14 +769,28 @@ function Add-MetadataUsingOFDB{
                     $proposedtitle = "$performername - $creationdatefromOF"
                     $detailsToAddToStash = $OFDBMedia.text
 
-                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " or backslashs \ very well so let's do it manually for the sake of our JSON query
+                    
+                    #Performers love to put links in their posts sometimes. Let's scrub those out in addition to any common HTML bits
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<br />","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href=","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href =","")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('"/',"")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('">',"")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace("</a>"," ")
+                    $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
+
+                    #For some reason the invoke-graphqlquery module doesn't quite escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
                     $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
                     $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
                     $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
-
+                    $detailsToAddToStash = $detailsToAddToStash.replace('“','\"') #literally removing the curly quote entirely
+                    $detailsToAddToStash = $detailsToAddToStash.replace('”','\"') #literally removing the curly quote entirely
+              
                     $proposedtitle = $proposedtitle.replace("'","''")
                     $proposedtitle = $proposedtitle.replace("\","\\")
                     $proposedtitle = $proposedtitle.replace('"','\"')
+                    $proposedtitle = $proposedtitle.replace('“','\"') #literally removing the curly quote entirely
+                    $proposedtitle = $proposedtitle.replace('”','\"') #literally removing the curly quote entirely
 
                     #Let's check to see if this is a file that already has metadata.
                     #For Videos, we check the title and the details
@@ -865,7 +886,7 @@ function Add-MetadataUsingOFDB{
                             }'
 
                             try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -escapehandling EscapeNonAscii | out-null
                             }
                             catch{
                                 write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -980,7 +1001,7 @@ function Add-MetadataUsingOFDB{
                                     "urls": "'+$linktoOFpost+'"
                                 }
                             }'
-
+                            
                             try{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
                             }
@@ -1188,7 +1209,7 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
 }
 else {
     clear-host
-    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.6 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.7 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
     write-output "By JuiceBox`n`n----------------------------------------------------`n"
     write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
     write-output "* Metadata Match Mode:        $searchspecificity"
