@@ -919,9 +919,9 @@ function Add-MetadataUsingOFDB{
                         #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
                         $filewasmodified = $false
 
-                        #Let's determine if this scene already has the right performer associated to it
-                        $StashGQL_Query = 'query FindScene($id:ID!) {
-                            findScene(id: $id){
+                        #Let's determine if this Image already has the right performer associated to it
+                        $StashGQL_Query = 'query FindImage($id:ID!) {
+                            findImage(id: $id){
                                 performers {
                                     id 
                                 }
