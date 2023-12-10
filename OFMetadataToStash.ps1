@@ -221,9 +221,9 @@ function Set-Config{
 #Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
 function Add-MetadataUsingOFDB{
     #Playing it safe and asking the user to back up their database first
-    $backupConfirmation = Read-Host "`nBefore we begin, would you like to make a backup of your Stash Database? [Y/N] (Default is N)"
+    $backupConfirmation = Read-Host "`nBefore we begin, would you like to make a backup of your Stash Database? [Y/N] (Default is 'No')"
 
-    if (($backupConfirmation -like 'Y*')) {
+    if (($backupConfirmation -like "Y*")) {
         $StashGQL_Query = 'mutation BackupDatabase($input: BackupDatabaseInput!) {
             backupDatabase(input: $input)
           }'
