@@ -193,10 +193,10 @@ function Set-Config {
     while (($titleselection -notmatch "[1-2]"))
 
     if ($titleselection -eq 1) {
-        $UseDescAsTitle = true
+        $UseDescAsTitle = $true
     }
     else {
-        $UseDescAsTitle = false
+        $UseDescAsTitle = $false
     }
 
     clear-host
