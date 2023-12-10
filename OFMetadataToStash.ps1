@@ -700,10 +700,6 @@ function Add-MetadataUsingOFDB{
                     #Because of how GQL returns data, these values are just positions in the $StashGQLQuery array. Not super memorable, so I'm putting them in variables. 
                     $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
                     $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
-
-                    if ($mediatype -eq "video"){
-                        $CurrentFileDetails = $StashGQL_Result.data.querySQL.rows[0][7] #Specific to images (for now), this will only work on Stash version 24 which adds support for image details
-                    }
                 }
                 
                 #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
@@ -826,8 +822,8 @@ function Add-MetadataUsingOFDB{
 
                         $performermatch = $false
                         if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
-                            foreach ($performer in $StashGQL_Result.data.findscene.performers.id){
-                                if($performer -eq $performerid){       
+                            foreach ($performer in $DiscoveredPerformerIDFromStash.data.findscene.performers.id){
+                                if($performer -eq $performerid){  
                                     $performermatch = $true
                                     break
                                 }
@@ -861,8 +857,7 @@ function Add-MetadataUsingOFDB{
                         }
 
                         #If it's necessary, update the scene by modifying the title and adding details
-                        if(($CurrentFileTitle -ne $proposedtitle) -or ($CurrentFileDetails -ne $OFDBMedia.text)){
-                            
+                        if($CurrentFileTitle -ne $proposedtitle){
                             $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
                                 sceneUpdate(input: $sceneUpdateInput){
                                   id
@@ -943,8 +938,8 @@ function Add-MetadataUsingOFDB{
                         }
 
                         $performermatch = $false
-                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
-                            foreach ($performer in $StashGQL_Result.data.findscene.performers.id){
+                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findimage.performers.length){
+                            foreach ($performer in $DiscoveredPerformerIDFromStash.data.findimage.performers.id){
                                 if($performer -eq $performerid){       
                                     $performermatch = $true
                                     break
@@ -980,7 +975,7 @@ function Add-MetadataUsingOFDB{
                         }
 
                         #If it's necessary, update the image by modifying the title and adding details
-                        if(($CurrentFileTitle -ne $proposedtitle) -or ($CurrentFileDetails -ne $OFDBMedia.text)){
+                        if($CurrentFileTitle -ne $proposedtitle){
                             if ($boolSetImageDetails -eq $true){
                                 $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
                                     imageUpdate(input: $imageUpdateInput){
