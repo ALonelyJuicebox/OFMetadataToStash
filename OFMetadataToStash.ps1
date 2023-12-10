@@ -127,9 +127,9 @@ function Set-Config{
     write-output "(3 of 4) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * Do you host Stash on Docker? Be sure to set this to low! `n"
+    write-output "    * Do you host Stash on Docker? Be sure to set this to 'Low'! `n"
     write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
-    write-output "Option 2: Low    - Will match based only on a matching Filesize"
+    write-output "Option 2: Low    - Will match based only on a matching Filesize (For Docker Users)"
     write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
 
 
@@ -156,8 +156,8 @@ function Set-Config{
     write-output "(4 of 4) Define your Console Output Verbosity Mode"
     write-output "    * If you are an average user, just set this to 'Normal'"
     write-output "    * Setting this to Verbose does incur a small performance penalty.`n"
-    write-output "Option 1: Normal  - You will see less info about what the script is actively doing while it's doing it (Recommended)"
-    write-output "Option 2: Verbose - You will see more info about what the script is actively doing while it's doing it, with a small speed penalty"
+    write-output "Option 1: Normal  - You will see a normal amount of information while the script is running (Recommended)"
+    write-output "Option 2: Verbose - You will see more information while the script is running"
 
 
 
@@ -345,7 +345,8 @@ function Add-MetadataUsingOFDB{
         }
         while (($mediaToProcessSelector -notmatch "[1-3]"))
 
-        write-host "`nQuick Tips : `n   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
+        write-host "`nQuick Tips :" -ForegroundColor Cyan
+        write-host "   * Be sure to run a Scan task in Stash of your OnlyFans content before running this script!`n   * Be sure your various OnlyFans metadata database(s) are located either at`n     <performername>"$directorydelimiter"user_data.db or at <performername>"$directorydelimiter"metadata"$directorydelimiter"user_data.db"
         read-host "`nPress [Enter] to begin"
     }
 
@@ -980,27 +981,55 @@ function Add-MetadataUsingOFDB{
 
                         #If it's necessary, update the image by modifying the title and adding details
                         if(($CurrentFileTitle -ne $proposedtitle) -or ($CurrentFileDetails -ne $OFDBMedia.text)){
+                            if ($boolSetImageDetails -eq $true){
+                                $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                    imageUpdate(input: $imageUpdateInput){
+                                      id
+                                      title
+                                      date
+                                      studio {
+                                        id
+                                      }
+                                      urls
+                                      details
+                                    }
+                                  }'  
+
+                                $StashGQL_QueryVariables = '{
+                                    "imageUpdateInput": {
+                                        "id": "'+$CurrentFileID+'",
+                                        "title": "'+$proposedtitle+'",
+                                        "date": "'+$creationdatefromOF+'",
+                                        "studio_id": "'+$OnlyFansStudioID+'",
+                                        "details": "'+$detailsToAddToStash+'",
+                                        "urls": "'+$linktoOFpost+'"
+                                    }
+                                }'
+                            }
+                            else{
+                                $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                    imageUpdate(input: $imageUpdateInput){
+                                      id
+                                      title
+                                      date
+                                      studio {
+                                        id
+                                      }
+                                      urls
+                                    }
+                                  }'  
+
+                                $StashGQL_QueryVariables = '{
+                                    "imageUpdateInput": {
+                                        "id": "'+$CurrentFileID+'",
+                                        "title": "'+$proposedtitle+'",
+                                        "date": "'+$creationdatefromOF+'",
+                                        "studio_id": "'+$OnlyFansStudioID+'",
+                                        "urls": "'+$linktoOFpost+'"
+                                    }
+                                }'
+                            }
                             
-                            $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
-                                imageUpdate(input: $imageUpdateInput){
-                                  id
-                                  title
-                                  date
-                                  studio {
-                                    id
-                                  }
-                                  urls
-                                }
-                              }'  
-                            $StashGQL_QueryVariables = '{
-                                "imageUpdateInput": {
-                                    "id": "'+$CurrentFileID+'",
-                                    "title": "'+$proposedtitle+'",
-                                    "date": "'+$creationdatefromOF+'",
-                                    "studio_id": "'+$OnlyFansStudioID+'",
-                                    "urls": "'+$linktoOFpost+'"
-                                }
-                            }'
                             
                             try{
                                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
@@ -1180,6 +1209,7 @@ $pathToSanitizerScript = "."+$directorydelimiter+"Utilities"+$directorydelimiter
 
 
 #Before we continue, let's make sure everything in the configuration file is good to go
+#This query also serves a second purpose-- as of Stash v0.24, images will support details. We'll check for that and add details if possible.
 $StashGQL_Query = 'query version{version{version}}'
 try{
     $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL
@@ -1189,6 +1219,14 @@ catch{
     write-host "Are you sure Stash is running?"
     read-host "If Stash is running like normal, press [Enter] to recreate the configuration file for this script"
     Set-Config
+}
+
+$boolSetImageDetails = $StashGQL_Result.data.version.version.split(".")
+if(($boolSetImageDetails[0] -eq "v0") -and ($boolSetImageDetails[1] -le 24)){ #checking for 'v0' as I assume stash will go to version 1 at some point.
+    $boolSetImageDetails = $false
+}
+else {
+    $boolSetImageDetails = $true
 }
 
 if (!(test-path $PathToOnlyFansContent)){
