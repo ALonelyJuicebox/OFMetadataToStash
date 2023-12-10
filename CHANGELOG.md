@@ -1,3 +1,10 @@
+**0.7 Release (12/8/2023**
+-  **Feature** - Script now shows how much progress the import is making during the process
+-  **Bugfix** - Media Type selector improvement
+-  **Bugfix** - Better handling of unicode characters in scene details (This is a big one for performers who love their emojis)
+-  **Known Bug** - Haven't gotten around to refactoring the "No Metadata Database" mode.
+-  **Known Bug** - Setting the "match" mode to "High" may result in fewer matches than it should.
+
 **0.6 Release (12/8/2023**
 -  **Feature** - Script now allows user to determine what type of media they would like to import
 -  **Bugfix** - More verbose/accurate error messages for GQL Queries
