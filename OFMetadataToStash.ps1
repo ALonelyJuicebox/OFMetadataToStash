@@ -779,7 +779,7 @@ function Add-MetadataUsingOFDB{
                     $detailsToAddToStash = $detailsToAddToStash.Replace("</a>"," ")
                     $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
 
-                    #For some reason the invoke-graphqlquery module doesn't escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
+                    #For some reason the invoke-graphqlquery module doesn't quite escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
                     $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
                     $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
                     $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
@@ -886,7 +886,7 @@ function Add-MetadataUsingOFDB{
                             }'
 
                             try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -escapehandling EscapeNonAscii | out-null
                             }
                             catch{
                                 write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
