@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata DB to Stash PoSH Script 0.7---
+---OnlyFans Metadata DB to Stash PoSH Script 0.8---
 
 AUTHOR
     JuiceBox
@@ -221,13 +221,9 @@ function Set-Config{
 #Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
 function Add-MetadataUsingOFDB{
     #Playing it safe and asking the user to back up their database first
-    $backupConfirmation = Read-Host "`nBefore we begin, would you like to make a backup of your Stash Database? [Y/N] (Default is Y)"
+    $backupConfirmation = Read-Host "`nBefore we begin, would you like to make a backup of your Stash Database? [Y/N] (Default is N)"
 
-    if (($backupConfirmation -eq 'n') -or ($backupConfirmation -eq 'no')) {
-        write-output "OK, no backup will be created." 
-    }
-    else{
-        
+    if (($backupConfirmation -like 'Y*')) {
         $StashGQL_Query = 'mutation BackupDatabase($input: BackupDatabaseInput!) {
             backupDatabase(input: $input)
           }'
@@ -244,11 +240,16 @@ function Add-MetadataUsingOFDB{
             read-host "Press [Enter] to exit"
             exit
         }
-
-
-
         write-output "...Done! A backup was successfully created."
     }
+    else{
+        write-output "OK, a backup will NOT be created." 
+
+    }
+
+
+    
+
     write-output "`nScanning for existing OnlyFans Metadata Database files..."
 
     #Finding all of our metadata databases. 
@@ -755,10 +756,6 @@ function Add-MetadataUsingOFDB{
                             $StashGQL_Result = $AlternativeStashGQL_Result
                             $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
                             $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
-        
-                            if ($mediatype -eq "video"){
-                                $CurrentFileDetails = $StashGQL_Result.data.querySQL.rows[0][7] #Specific to images, this will only work on Stash version 24 which adds support for image details
-                            }
                         } 
                     }
 
@@ -1242,7 +1239,7 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
 }
 else {
     clear-host
-    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.7 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.8 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
     write-output "By JuiceBox`n`n----------------------------------------------------`n"
     write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
     write-output "* Metadata Match Mode:        $searchspecificity"
