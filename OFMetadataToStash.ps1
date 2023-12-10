@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata DB to Stash PoSH Script 0.6---
+---OnlyFans Metadata DB to Stash PoSH Script 0.7---
 
 AUTHOR
     JuiceBox
@@ -564,12 +564,14 @@ function Add-MetadataUsingOFDB{
                     exit
                 }
                 $PerformerID = $StashGQL_Result.data.findPerformers.performers[0].id
-                $creatednewperformer = $true
+                $creatednewperformer = $true #We'll use this later after images have been added in order to give the performer a profile picture
+                $boolGetPerformerImage = $true #We'll use this to get an image to use for the profile picture
                 write-host "`nInfo: Added a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
                 
             }
             else{
-                $creatednewperformer = $false #We'll use this later after images have been added in order to give the performer a profile picture
+                $creatednewperformer = $false 
+                $boolGetPerformerImage = $false
             }
 
 
@@ -578,7 +580,6 @@ function Add-MetadataUsingOFDB{
             $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
             $OF_DBpath = $currentdatabase.fullname 
             $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
-            $boolGetPerformerImage = $true
 
             $progressCounter = 1 #Used for the progress UI
             foreach ($OFDBMedia in $OFDBQueryResult){
@@ -618,14 +619,14 @@ function Add-MetadataUsingOFDB{
                 #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
                 if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
                     #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
-                    if (!$boolGetPerformerImage){
-                        $boolGetPerformerImage = $false
+                    if ($boolGetPerformerImage){
+                        $boolGetPerformerImage = $false #Let's make sure we don't pull any more photos
+                    }
+                    else{
                         continue #Skip to the next item in this foreach, user only wants to process videos
                     }
-
-                    
-                    
                 }
+
                 if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
                     continue #Skip to the next item in this foreach, user only wants to process images
                 }
@@ -1208,7 +1209,7 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
 }
 else {
     clear-host
-    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.6 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.7 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
     write-output "By JuiceBox`n`n----------------------------------------------------`n"
     write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
     write-output "* Metadata Match Mode:        $searchspecificity"
