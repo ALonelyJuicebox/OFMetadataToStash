@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata Database Sanitizer PoSH Script 0.3---
+---OnlyFans Metadata Database Sanitizer PoSH Script 0.7---
 
 AUTHOR
     JuiceBox
@@ -17,7 +17,7 @@ REQUIREMENTS
  #>
 
  clear-host
- write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.5 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+ write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.7 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
  write-host "Database Sanitization Tool"
  write-host "--------------------------------`n"
  
@@ -136,6 +136,6 @@ REQUIREMENTS
      }
  
      else{
-         write-host "Hmm...not quite. The metadata database should be defined as either user_data.db (default) or posts.db"
-         write-host "If you personally used the DIGITALCRIMINALS OnlyFans Downloader, the file is located under <performername>/metadata/"
+         write-host "Hmm...not quite. The metadata database should be defined as either user_data.db (default) or posts.db, "
+         write-host "with a folder structure of <performername>/metadata/"
      }
