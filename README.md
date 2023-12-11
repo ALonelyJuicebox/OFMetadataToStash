@@ -1,7 +1,7 @@
-<h1 align="center">OnlyFans Metadata to Stash Powershell Script</h1>
+<h1 align="center">OnlyFans Metadata Import Utility</h1>
 <p align="center"><img src="/readme_assets/oldtonew.png" ></p>
 
-**OFMetadataToStash** is an OnlyFans metadata import tool for Stash, written in Powershell.
+**MetadataImportUtil** is an OnlyFans metadata import tool forked from ALonelyJuicebox's great [OFMetadataToStash](https://github.com/ALonelyJuicebox/OFMetadataToStash).
 
 * Simple to use with a straightforward command line based UI!
 * Script can auto-associate scenes/images with the appropriate OnlyFans performer(s) and studio, in batch!
