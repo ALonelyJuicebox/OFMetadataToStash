@@ -24,16 +24,19 @@ REQUIREMENTS
 Import-Module PSGraphQL
 Import-Module PSSQLite
 
-
 ### Functions
 
 #Set-Config is a wizard that walks the user through the configuration settings
 function Set-Config {
+    $GQL_URL = ""
+    $GQL_Query = "query version{version{version}}"
+
+
     clear-host
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(1 of 5) Define the URL to your Stash"
+    write-output "(1 of 6) Define the URL to your Stash"
     write-output "Option 1: Stash is hosted on the computer I'm using right now (localhost:9999)"
     write-output "Option 2: Stash is hosted at a different address and/or port (Ex. 192.168.1.2:6969)`n"
 
@@ -44,6 +47,7 @@ function Set-Config {
 
     if ($userselection -eq 1) {
         $StashGQL_URL = "http://localhost:9999/graphql"
+        $GQL_URL = "http://localhost:9999/graphql"
     }
 
     #Asking the user for the Stash URL, with some error handling
@@ -60,15 +64,7 @@ function Set-Config {
             if (!($StashGQL_URL.contains("http"))) {
                 $StashGQL_URL = "http://" + $StashGQL_URL
             }
-    
-            #Now to check to ensure this address is valid-- we'll use a very simple GQL query and get the Stash version
-            $StashGQL_Result = 'query version{version{version}}'
-            try {
-                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL | out-null
-            }
-            catch {
-                write-host "(0) Error: Could not communicate to Stash at the provided address ($StashGQL_URL)" -ForegroundColor red
-            }
+            $GQL_URL = $StashGQL_URL
         }
     }
 
@@ -76,7 +72,48 @@ function Set-Config {
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(2 of 5) Define the path to your OnlyFans content`n"
+    write-output "(2 of 6) Define Stash API key"
+    write-output "    * If you have credentials configured in Stash you'll need to generate an API key for MetadataImportUtil to work. "
+    write-output "    * You can generate an API key by going into your Stash settings then Security > API Key > Generate API Key."
+    write-output "Option 1: Stash doesn't have credentials."
+    write-output "Option 2: Stash does have credentials."
+
+    $keyselection = 0
+    do {
+        $keyselection = read-host "Enter your selection (1 or 2)"
+    }
+    while (($keyselection -notmatch "[1-2]"))
+    
+    if ($keyselection -eq 1) {
+        #Now to check to ensure this address is valid-- we'll use a very simple GQL query and get the Stash version
+           
+        try {
+            $StashGQL_Result = Invoke-GraphQLQuery -Query $GQL_Query -Uri $GQL_URL | out-null
+        }
+        catch {
+            write-host "(0) Error: Could not communicate to Stash at the provided address ($GQL_URL)" -ForegroundColor red
+            return
+        }
+    }
+    else {
+        while ($null -eq $StashGQL_Result ) {
+            $StashGQL_API_KEY = read-host "`nPlease enter the API key for your Stash"
+            
+            #Now to check to ensure this address & API Key are valid-- we'll use a very simple GQL query and get the Stash version
+            try {
+                $StashGQL_Result = Invoke-GraphQLQuery -Query $GQL_Query -Uri $GQL_URL -Headers @{"ApiKey" = $StashGQL_API_KEY }
+            }
+            catch {
+                $StashGQL_Result = $null
+                write-host "(0) Error: Could not communicate to Stash at the provided address ($GQL_URL) and API Key" -ForegroundColor red
+            }
+        }
+    }
+
+    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
+    write-output "Configuration Setup Wizard"
+    write-output "--------------------------`n"
+    write-output "(3 of 6) Define the path to your OnlyFans content`n"
     write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are commonly `n      located under <performername> $directorydelimiter metadata $directorydelimiter , as defined by your OnlyFans scraper of choice"
     write-output "`n    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
     write-output "`n    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
@@ -124,7 +161,7 @@ function Set-Config {
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(3 of 5) Define your Metadata Match Mode"
+    write-output "(4 of 6) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
     write-output "    * Do you host Stash on Docker? Be sure to set this to low! `n"
@@ -153,7 +190,7 @@ function Set-Config {
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(4 of 5) Define your Console Output Verbosity Mode"
+    write-output "(5 of 6) Define your Console Output Verbosity Mode"
     write-output "    * If you are an average user, just set this to 'Normal'"
     write-output "    * Setting this to Verbose does incur a small performance penalty.`n"
     write-output "Option 1: Normal  - You will see less info about what the script is actively doing while it's doing it (Recommended)"
@@ -179,7 +216,7 @@ function Set-Config {
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(5 of 5) Define content title style"
+    write-output "(6 of 6) Define content title style"
     write-output "    * When importing OnlyFans Metadata, some users may want to change how titles are added."
     write-output "    * If you're using a Stash-Box like FansDB or want the title of content to be the same as the description, set this to true."
     write-output "    * If you want content titles to be formated like this 'post_author - YYYY-MM-DD', set this to false."
@@ -227,6 +264,8 @@ function Set-Config {
     try { 
         Add-Content -path $PathToConfigFile -value "## URL to the Stash GraphQL API endpoint ##"
         Add-Content -path $PathToConfigFile -value $StashGQL_URL
+        Add-Content -path $PathToConfigFile -value "## API key for Stash GraphQL API enpoint ##"
+        Add-Content -path $PathToConfigFile -Value $StashGQL_API_KEY
         Add-Content -path $PathToConfigFile -value "## Direct Path to OnlyFans Metadata Database or top level folder containing OnlyFans content ##"
         Add-Content -path $PathToConfigFile -value $PathToOnlyFansContent
         Add-Content -path $PathToConfigFile -value "## Search Specificity mode. (Normal | High | Low) ##"
@@ -241,7 +280,6 @@ function Set-Config {
         read-output "Press [Enter] to exit" -ForegroundColor red
         exit
     }
-    
 } #End Set-Config
 
 #Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
@@ -262,7 +300,8 @@ function Add-MetadataUsingOFDB {
           }' 
 
         try {
-            Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+            
+            Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
         }
         catch {
             write-host "(10) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -399,7 +438,8 @@ function Add-MetadataUsingOFDB {
     }
     }'
     try {
-        $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+        
+        $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
     }
     catch {
         write-host "(1) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -426,7 +466,8 @@ function Add-MetadataUsingOFDB {
         }'
 
         try {
-            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+            
+            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
         }
         catch {
             write-host "(9) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -451,7 +492,8 @@ function Add-MetadataUsingOFDB {
         }
         }'
         try {
-            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables 
+            
+            $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
         }
         catch {
             write-host "(9a) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -528,7 +570,8 @@ function Add-MetadataUsingOFDB {
                 }
             }'
             try {
-                $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                
+                $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
             }
             catch {
                 write-host "(2) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -556,7 +599,8 @@ function Add-MetadataUsingOFDB {
                 }' 
             
                 try {
-                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                    
+                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
                 }
                 catch {
                     write-host "(3) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -581,7 +625,8 @@ function Add-MetadataUsingOFDB {
                     }
                 }'
                 try {
-                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                    
+                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
                 }
                 catch {
                     write-host "(22) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -704,7 +749,8 @@ function Add-MetadataUsingOFDB {
 
                 #Now lets try running the GQL query and see if we have a match in the Stash DB
                 try {
-                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
+                    
+                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Headers $headers
                 }
                 catch {
                     write-host "(4) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -763,7 +809,8 @@ function Add-MetadataUsingOFDB {
 
                         #Now lets try running the GQL query and try to find the file in the Stash DB
                         try {
-                            $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
+                            
+                            $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Headers $headers
                         }
                         catch {
                             write-host "(5) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -824,7 +871,8 @@ function Add-MetadataUsingOFDB {
                         }' 
                         
                         try {
-                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                            
+                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
                         }
                         catch {
                             write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -859,7 +907,8 @@ function Add-MetadataUsingOFDB {
                                 }
                             }'
                             try {
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
                             }
                             catch {
                                 write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -896,7 +945,7 @@ function Add-MetadataUsingOFDB {
                             }'
 
                             try {
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
                             }
                             catch {
                                 write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -942,7 +991,7 @@ function Add-MetadataUsingOFDB {
                         }' 
                         
                         try {
-                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers
                         }
                         catch {
                             write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -977,7 +1026,7 @@ function Add-MetadataUsingOFDB {
                                 }
                             }'
                             try {
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
                             }
                             catch {
                                 write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -1013,7 +1062,7 @@ function Add-MetadataUsingOFDB {
                             }'
 
                             try {
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $headers | out-null
                             }
                             catch {
                                 write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -1084,7 +1133,7 @@ function Add-MetadataUsingOFDB {
                 }'
 
                 try {
-                    $performerimageURL = Invoke-GraphQLQuery -Query $performerimageURL_GQLQuery -Uri $StashGQL_URL -Variables $performerimageURLVariables_GQLQuery
+                    $performerimageURL = Invoke-GraphQLQuery -Query $performerimageURL_GQLQuery -Uri $StashGQL_URL -Variables $performerimageURLVariables_GQLQuery -Headers $headers
                     
                 }
                 catch {
@@ -1112,7 +1161,7 @@ function Add-MetadataUsingOFDB {
                     }'
 
                     try {
-                        $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
+                        $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables -Headers $headers | out-null
                     }
                     catch {
                         write-host "(12) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
@@ -1180,10 +1229,13 @@ if (!(Test-path $PathToConfigFile)) {
 
 ## Global Variables ##
 $StashGQL_URL = (Get-Content $pathtoconfigfile)[1]
-$PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[3]
-$SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
-$ConsoleVerbosity = (Get-Content $pathtoconfigfile)[7]
-$UseDescAsTitle = (Get-Content $pathtoconfigfile)[9]
+$StashGQL_API_KEY = (Get-Content $pathtoconfigfile)[3]
+$PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[5]
+$SearchSpecificity = (Get-Content $pathtoconfigfile)[7]
+$ConsoleVerbosity = (Get-Content $pathtoconfigfile)[9]
+$UseDescAsTitle = (Get-Content $pathtoconfigfile)[11]
+
+$headers = @{"ApiKey" = $StashGQL_API_KEY }
 
 $PathToMissingFilesLog = "." + $directorydelimiter + "OFMetadataToStash_MissingFiles.txt"
 $pathToSanitizerScript = "." + $directorydelimiter + "Utilities" + $directorydelimiter + "OFMetadataDatabase_Sanitizer.ps1"
@@ -1193,7 +1245,7 @@ $pathToSanitizerScript = "." + $directorydelimiter + "Utilities" + $directorydel
 #Before we continue, let's make sure everything in the configuration file is good to go
 $StashGQL_Query = 'query version{version{version}}'
 try {
-    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL
+    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Headers $headers
 }
 catch {
     write-host "Hmm...Could not communicate to Stash using the URL in the config file ($StashGQL_URL)"
