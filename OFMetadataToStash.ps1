@@ -62,7 +62,7 @@ function Set-Config{
             }
     
             #Now to check to ensure this address is valid-- we'll use a very simple GQL query and get the Stash version
-            $StashGQL_Result = 'query version{version{version}}'
+            $StashGQL_Query = 'query version{version{version}}'
             try{
                 Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL |out-null
             }
