@@ -48,7 +48,7 @@ function Set-Config{
 
     #Asking the user for the Stash URL, with some error handling
     else {
-        while ($null -eq $StashGQL_Result ){
+        while ($null -eq $StashGQL_URL ){
             $StashGQL_URL = read-host "`nPlease enter the URL to your Stash"
             $StashGQL_URL = $StashGQL_URL + '/graphql' #Tacking on the gql endpoint
     
