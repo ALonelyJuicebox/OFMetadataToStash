@@ -1214,7 +1214,7 @@ catch{
 }
 
 $boolSetImageDetails = $StashGQL_Result.data.version.version.split(".")
-if(($boolSetImageDetails[0] -eq "v0") -and ($boolSetImageDetails[1] -le 24)){ #checking for 'v0' as I assume stash will go to version 1 at some point.
+if(($boolSetImageDetails[0] -eq "v0") -and ($boolSetImageDetails[1] -lt 24)){ #checking for 'v0' as I assume stash will go to version 1 at some point.
     $boolSetImageDetails = $false
 }
 else {
