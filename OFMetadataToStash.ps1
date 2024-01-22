@@ -603,10 +603,11 @@ function Add-MetadataUsingOFDB{
                 $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
                 $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
 
-                #Storing separate variants of these variables with apostrophy sanitization so they don't ruin our SQL queries
+                #Storing separate variants of these variables with apostrophy and backslash sanitization so they don't ruin our SQL/GQL queries
                 $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
                 $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
-    
+                $OFDBfilenameForQuery = $OFDBfilename.replace("\","\\") 
+                $OFDBdirectoryForQuery = $OFDBdirectory.replace("\","\\") 
 
                 #Note that the OF downloader quantifies gifs as videos for some reason
                 #Since Stash doesn't (and rightfully so), we need to account for this
