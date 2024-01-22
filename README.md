@@ -15,7 +15,7 @@
 - That said, if you don't have metadata DB files, this script _can_ try and make a good guess as your performers and associated content based on file path
 
 ## 💻 Requirements
-- Stash v0.23.1 ([Released 2023-10-14](https://github.com/stashapp/stash/releases/tag/v0.21.0))
+- Stash v0.24.3 ([Released 2024-1-14](https://github.com/stashapp/stash/releases/))
 - Any major operating system (Windows/macOS/Linux) running [Microsoft Powershell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3)
 - The [PSSQLite](https://github.com/RamblingCookieMonster/PSSQLite) and [PSGraphQL](https://www.powershellgallery.com/packages/PSGraphQL/1.6.0) PowerShell modules
 
