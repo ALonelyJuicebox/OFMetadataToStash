@@ -706,7 +706,7 @@ function Add-MetadataUsingOFDB{
                 #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
                 if ($StashGQL_Result.data.querySQL.rows.length -eq 0 ){
                     if (Test-Path $OFDBFullFilePath){
-                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script or changing your Search Specificity mode to Low.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
                     }
                     #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
                     else{
