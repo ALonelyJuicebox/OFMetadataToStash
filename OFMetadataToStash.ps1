@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata DB to Stash PoSH Script 0.8---
+---OnlyFans Metadata DB to Stash PoSH Script 0.9---
 
 AUTHOR
     JuiceBox
@@ -1240,7 +1240,7 @@ if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
 }
 else {
     clear-host
-    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.8 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+    write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.9 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
     write-output "By JuiceBox`n`n----------------------------------------------------`n"
     write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
     write-output "* Metadata Match Mode:        $searchspecificity"

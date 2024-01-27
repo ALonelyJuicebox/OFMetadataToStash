@@ -1,5 +1,5 @@
 <#
----OnlyFans Metadata Database Sanitizer PoSH Script 0.7---
+---OnlyFans Metadata Database Sanitizer PoSH Script 0.9---
 
 AUTHOR
     JuiceBox
@@ -17,7 +17,7 @@ REQUIREMENTS
  #>
 
  clear-host
- write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.8 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
+ write-host "- OnlyFans Metadata DB to Stash PoSH Script 0.9 - `n(https://github.com/ALonelyJuicebox/OFMetadataToStash)`n" -ForegroundColor cyan
  write-host "Database Sanitization Tool"
  write-host "--------------------------------`n"
  
