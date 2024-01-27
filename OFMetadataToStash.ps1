@@ -127,9 +127,8 @@ function Set-Config{
     write-output "(3 of 4) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * Do you host Stash on Docker? Be sure to set this to 'Low'! `n"
     write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
-    write-output "Option 2: Low    - Will match based only on a matching Filesize (For Docker Users)"
+    write-output "Option 2: Low    - Will match based only on a matching Filesize"
     write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
 
 
