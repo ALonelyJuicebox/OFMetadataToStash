@@ -68,6 +68,7 @@ function Set-Config{
             }
             catch{
                 write-host "(0) Error: Could not communicate to Stash at the provided address ($StashGQL_URL)" -ForegroundColor red
+                write-host "Try defining the address to Stash once more. Also, please ensure you do not have a password on your Stash!"
             }
         }
     }
@@ -370,7 +371,7 @@ function Add-MetadataUsingOFDB{
     ' 
     $StashGQL_QueryVariables = '{
     "filter": {
-        "q": "OnlyFans",
+        "q": "OnlyFans"
     }
     }'
     try{
@@ -1056,7 +1057,9 @@ function Add-MetadataUsingOFDB{
             #The only reason we don't do it earlier is that now all the images have been added and associated and it's easy to select an image and go.
             if($creatednewperformer){
 
-                #First let's look for an image where this performer has been associated and get the URL for that image
+                #First let's look for an image where this performer has been associated and get the URL, for that image
+                #Sometimes these OF downloaders pull profile/avatar photos into a specific folder. We'll look to see if we can match on that first before just choosing what we can get.
+                #FINISHME
                 $performerimageURL_GQLQuery = 'query FindImages(
                     $filter: FindFilterType
                     $image_filter: ImageFilterType
@@ -1208,7 +1211,7 @@ try{
 }
 catch{
     write-host "Hmm...Could not communicate to Stash using the URL in the config file ($StashGQL_URL)"
-    write-host "Are you sure Stash is running?"
+    write-host "Are you sure Stash is running? Make sure you don't have a password on your Stash account either."
     read-host "If Stash is running like normal, press [Enter] to recreate the configuration file for this script"
     Set-Config
 }
