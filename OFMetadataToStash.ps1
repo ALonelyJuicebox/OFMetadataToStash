@@ -24,6 +24,11 @@ REQUIREMENTS
 Import-Module PSGraphQL
 Import-Module PSSQLite
 
+#Command Line Arguments
+param (
+    [switch]$ignorehistory = $true #If the user doesn't want the script to make use of the history file, this will toggle its use.
+ )
+
 
 ### Functions
 
@@ -778,7 +783,8 @@ function Add-MetadataUsingOFDB{
             }
 
             #Let's check to see if we need to import this performer based on the history file. If this function returns false, move on to the next performer. 
-            if (Get-PerformerHistory -or $ignorehistory -eq $true){
+            #The ignorehistory variable is a command line flag that the user may set if they want to have the script ignore the use of the history file
+            if (Get-PerformerHistory -or ($ignorehistory -eq $true)){
                 #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
                 $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
                 $OF_DBpath = $currentdatabase.fullname 
