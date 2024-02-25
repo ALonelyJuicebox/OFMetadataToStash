@@ -283,48 +283,60 @@ function Add-MetadataUsingOFDB{
     #For the discovery of multiple database files
     elseif ($OFDatabaseFilesCollection.count -gt 1){
         
-        write-output "Discovered multiple metadata databases"
-        write-output "0 - Process metadata for all performers"
+        $totalNumMetadataDatabases = $OFDatabaseFilesCollection.count
+        write-host "...Discovered $totalnummetadatadatabases metadata databases."
+        write-host "`nHow would you like to import metadata for these performers?"
+        write-host "1 - Import metadata for all discovered performers"
+        write-host "2 - Import metadata for a specific performer"
+        write-host "3 - Import metadata for a range of performers"
+        $selectednumberforprocess = read-host "Make your selection [Enter a number]"
 
-        $i=1 # just used cosmetically
-        Foreach ($OFDBdatabase in $OFDatabaseFilesCollection){
+        while([int]$selectednumberforprocess -notmatch "[1-3]" ){
+            write-host "Invalid input"
+            $selectednumberforprocess = read-host "Make your selection [Enter a number]"
+        }
 
-            #Getting the performer name from the profiles table (if it exists)
-            $Query = "PRAGMA table_info(medias)"
-            $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDBdatabase.FullName
+        if ([int]$selectednumberforprocess -eq 1){
+            write-host "OK, all performers will be processed."
+        }
+        #Logic for handling the process for selecting a single performer
+        elseif([int]$selectednumberforprocess -eq 2){
 
-            #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
-            $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
-            $performername = $null
-            if ($OFDBColumnsToCheck -match "profiles"){
-                $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
-                $performername =  Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
-            }
-
-            #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
-            if ($null -eq $performername){
-                $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
-                if ($performername -eq "metadata"){
-                    $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
+            #logic for displaying all found performers for user to select
+            $i=1 # just used cosmetically
+            Foreach ($OFDBdatabase in $OFDatabaseFilesCollection){
+    
+                #Getting the performer name from the profiles table (if it exists)
+                $Query = "PRAGMA table_info(medias)"
+                $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDBdatabase.FullName
+    
+                #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+                $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+                $performername = $null
+                if ($OFDBColumnsToCheck -match "profiles"){
+                    $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                    $performername =  Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
                 }
+    
+                #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+                if ($null -eq $performername){
+                    $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
+                    if ($performername -eq "metadata"){
+                        $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
+                    }
+                }
+              
+                write-output "$i - $performername"
+                $i++
             }
-          
-            write-output "$i - $performername"
-            $i++
 
-        }
-        $selectednumber = read-host "`n# Which performer would you like to select? [Enter a number]"
+            
+            $selectednumber = read-host "`n# Which performer would you like to select? [Enter a number]"
+            #Checking for bad input
+            while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $totalNumMetadataDatabases)){
+                $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $totalNumMetadataDatabases".`nWhich performer would you like to select? [Enter a number]"
+            }
 
-        #Checking for bad input
-        while ($selectednumber -notmatch "^[\d\.]+$" -or ([int]$selectednumber -gt $OFDatabaseFilesCollection.Count)){
-            $selectednumber = read-host "Invalid Input. Please select a number between 0 and" $OFDatabaseFilesCollection.Count".`nWhich performer would you like to select? [Enter a number]"
-        }
-
-        #If the user wants to process all performers, let's let them.
-        if ([int]$selectednumber -eq 0){
-            write-output "OK, all performers will be processed."
-        }
-        else{
             $selectednumber = $selectednumber-1 #Since we are dealing with a 0 based array, i'm realigning the user selection
             $performername = $OFDatabaseFilesCollection[$selectednumber].FullName | split-path | split-path -leaf
             if ($performername -eq "metadata"){
@@ -335,9 +347,102 @@ function Add-MetadataUsingOFDB{
             $OFDatabaseFilesCollection = $OFDatabaseFilesCollection[$selectednumber]
 
             write-output "OK, the performer '$performername' will be processed."
-            
+
         }
-        write-host "`n# Which types of media do you want to import metadata for?"
+
+        #Logic for handling the range process
+        else{
+
+            #Logic for displaying all found performers
+            $i=1 # just used cosmetically
+            write-host "`nHere are all the performers that you can import metadata for:"
+            Foreach ($OFDBdatabase in $OFDatabaseFilesCollection){
+    
+                #Getting the performer name from the profiles table (if it exists)
+                $Query = "PRAGMA table_info(medias)"
+                $OFDBColumnsToCheck = Invoke-SqliteQuery -Query $Query -DataSource $OFDBdatabase.FullName
+    
+                #There's probably a faster way to do this, but I'm throwing the collection into a string, with each column result (aka table name) seperated by a space. 
+                $OFDBColumnsToCheck = [string]::Join(' ',$OFDBColumnsToCheck.name) 
+                $performername = $null
+                if ($OFDBColumnsToCheck -match "profiles"){
+                    $Query = "SELECT username FROM profiles LIMIT 1" #I'm throwing that limit on as a precaution-- I'm not sure if multiple usernames will ever be stored in that SQL table
+                    $performername =  Invoke-SqliteQuery -Query $Query -DataSource $OFDatabaseFilesCollection[0].FullName
+                }
+    
+                #Either the query resulted in null or the profiles table didnt exist, so either way let's use the alternative directory based method.
+                if ($null -eq $performername){
+                    $performername = $OFDBdatabase.FullName | split-path | split-path -leaf
+                    if ($performername -eq "metadata"){
+                        $performername = $OFDBdatabase.FullName | split-path | split-path | split-path -leaf
+                    }
+                }
+              
+                write-output "$i - $performername"
+                $i++
+            }
+
+            #Some input handling/error handling for the user defined start of the range
+            $StartOfRange = read-host "Which performer is the first in the range? [Enter a number]"
+            $rangeInputCheck = $false
+
+            while($rangeInputCheck -eq $false){
+                if($StartOfRange -notmatch "^[\d\.]+$"){
+                    write-host "`nInvalid Input: You have to enter a number"
+                    $StartOfRange = read-host "Which performer is at the start of the range? [Enter a number]"
+                }
+                elseif($StartOfRange -le 0){
+                    write-host "`nInvalid Input: You can't enter a number less than 1"
+                    $StartOfRange = read-host "Which performer is at the start of the range? [Enter a number]"
+                }
+                elseif($StartOfRange -ge $totalNumMetadataDatabases){
+                    write-host "`nInvalid Input: You can't enter a number greater than or equal to $totalNumMetadataDatabases"
+                    $StartOfRange = read-host "Which performer is at the start of the range? [Enter a number]"
+                }
+                else{
+                    $rangeInputCheck = $true
+                }
+            }
+
+            #Some input handling/error handling for the user defined end of the range
+            $endOfRange = Read-Host "Which performer is at the end of the range? [Enter a number]"
+            $rangeInputCheck = $false
+
+            while($rangeInputCheck -eq $false){
+                if($EndOfRange -notmatch "^[\d\.]+$"){
+                    write-host "`nInvalid Input: You have to enter a number"
+                    $endOfRange = read-host "Which performer is at the end of the range? [Enter a number]"
+                }
+                elseif($EndOfRange -le 0){
+                    write-host "`nInvalid Input: You can't enter a number less than 1"
+                    $endOfRange = read-host "Which performer is at the end of the range? [Enter a number]"
+                }
+                elseif($endOfRange -gt $totalNumMetadataDatabases){
+                    write-host "`nInvalid Input: You can't enter a number greater than $totalNumMetadataDatabases"
+                    $endOfRange = read-host "Which performer is at the end of the range? [Enter a number]"
+                }
+                elseif($endOfRange -le $StartOfRange){
+                    write-host "`nInvalid Input: Number has to be greater than $StartofRange"
+                    $endOfRange = read-host "Which performer is at the end of the range? [Enter a number]"
+                }
+                else{
+                    $rangeInputCheck = $true
+                }
+            }
+            write-host "OK, all the performers between $startofrange and $endofrange will be processed."
+            
+
+            #We subtract 1 to account for us presenting the user with a 1 based start while PS arrays start at 0
+            $endofrange = $endOfRange - 1 
+            $StartOfRange = $StartOfRange - 1
+
+            #Finally, let's define the new array of metadata databases based on the defined range
+            $OFDatabaseFilesCollection = $OFDatabaseFilesCollection[$startofrange..$endOfRange]
+            write-host $OFDatabaseFilesCollection
+        }
+
+        #Let's ask the user what type of media they want to parse
+        write-host "`nWhich types of media do you want to import metadata for?"
         write-host "1 - Both Videos & Images`n2 - Only Videos`n3 - Only Images"
 
         $mediaToProcessSelector = 0;
