@@ -635,7 +635,15 @@ function Add-MetadataUsingOFDB{
         
     }
 
+    $totalprogressCounter = 1 #Used for the progress UI
+
     foreach ($currentdatabase in $OFDatabaseFilesCollection) {
+        #Let's help the user see how we are progressing through this metadata database (this is the parent progress UI, there's an additional child below as well)
+        $currentTotalProgress = [int]$(($totalprogressCounter/$OFDatabaseFilesCollection.count)*100)
+        Write-Progress -Activity "Total Import Progress" -Status "$currentTotalProgress% Complete" -PercentComplete $currentTotalProgress
+        $totalprogressCounter++
+
+
         #Gotta reparse the performer name as we may be parsing through a full collection of performers. 
         #Otherwise you'll end up with a whole bunch of performers having the same name
         #This is also where we will make the determination if this onlyfans database has the right tables to be used here
@@ -678,7 +686,6 @@ function Add-MetadataUsingOFDB{
                     $performername = $currentdatabase.FullName | split-path | split-path | split-path -leaf
                 }
             }
-            write-host "`nInfo: Parsing media for $performername" -ForegroundColor Cyan
 
             #Let's see if we can find this performer in Stash
             $StashGQL_Query = '
@@ -780,9 +787,9 @@ function Add-MetadataUsingOFDB{
                 $progressCounter = 1 #Used for the progress UI
                 foreach ($OFDBMedia in $OFDBQueryResult){
 
-                    #Let's help the user see how we are progressing through this metadata database
+                    #Let's help the user see how we are progressing through this performer's metadata database
                     $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
-                    Write-Progress -Activity "Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
+                    Write-Progress -Activity "$performername Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
                     $progressCounter++
     
                     #Generating the URL for this post
