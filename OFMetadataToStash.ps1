@@ -26,7 +26,8 @@ Import-Module PSSQLite
 
 #Command Line Arguments
 param (
-    [switch]$ignorehistory = $true #If the user doesn't want the script to make use of the history file, this will toggle its use.
+    [switch]$ignorehistory, #If the user doesn't want the script to make use of the history file, this will toggle its use.
+    [switch]$v #Toggles console verbosity, useful for troubleshooting
  )
 
 
@@ -38,7 +39,7 @@ function Set-Config{
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(1 of 4) Define the URL to your Stash"
+    write-output "(1 of 3) Define the URL to your Stash"
     write-output "Option 1: Stash is hosted on the computer I'm using right now (localhost:9999)"
     write-output "Option 2: Stash is hosted at a different address and/or port (Ex. 192.168.1.2:6969)`n"
     do{
@@ -97,7 +98,7 @@ function Set-Config{
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(2 of 4) Define the path to your OnlyFans content`n"
+    write-output "(2 of 3) Define the path to your OnlyFans content`n"
     write-host "    * OnlyFans metadata database files are named 'user_data.db' and they are commonly `n      located under <performername> $directorydelimiter metadata $directorydelimiter , as defined by your OnlyFans scraper of choice"
     write-output "`n    * You have the option of linking directly to the 'user_data.db' file, `n      or you can link to the top level OnlyFans folder of several metadata databases."
     write-output "`n    * When multiple database are detected, this script can help you select one (or even import them all in batch!)`n"
@@ -145,7 +146,7 @@ function Set-Config{
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
     write-output "Configuration Setup Wizard"
     write-output "--------------------------`n"
-    write-output "(3 of 4) Define your Metadata Match Mode"
+    write-output "(3 of 3) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
     write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
@@ -169,32 +170,6 @@ function Set-Config{
     else{
         $SearchSpecificity = "High"
     }
-    clear-host
-    write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
-    write-output "Configuration Setup Wizard"
-    write-output "--------------------------`n"
-    write-output "(4 of 4) Define your Console Output Verbosity Mode"
-    write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "    * Setting this to Verbose does incur a small performance penalty.`n"
-    write-output "Option 1: Normal  - You will see a normal amount of information while the script is running (Recommended)"
-    write-output "Option 2: Verbose - You will see more information while the script is running"
-
-
-
-    $verbosityselection = 0;
-    do {
-        $verbosityselection = read-host "`nEnter selection (1 or 2)"
-    }
-    while (($verbosityselection -notmatch "[1-2]"))
-
-    #Code for parsing metadata files
-    if($verbosityselection -eq 1){
-        $ConsoleVerbosity = "Normal"
-    }
-    else{
-        $ConsoleVerbosity = "Verbose"
-    }
-
 
     clear-host
     write-host "OnlyFans Metadata DB to Stash PoSH Script" -ForegroundColor Cyan
@@ -205,7 +180,6 @@ function Set-Config{
     write-output "URL to Stash API:`n - $StashGQL_URL`n"
     write-output "Path to OnlyFans Content:`n - $PathToOnlyFansContent`n"
     write-output "Metadata Match Mode:`n - $SearchSpecificity`n"
-    write-output "Console Verbosity Mode:`n - $ConsoleVerbosity`n"
 
     read-host "Press [Enter] to save this configuration and return to the Main Menu"
 
@@ -227,8 +201,8 @@ function Set-Config{
         Add-Content -path $PathToConfigFile -value $PathToOnlyFansContent
         Add-Content -path $PathToConfigFile -value "## Search Specificity mode. (Normal | High | Low) ##"
         Add-Content -path $PathToConfigFile -value $SearchSpecificity
-        Add-Content -path $PathToConfigFile -value "## Console Verbosity Mode. (Normal | Verbose) ##"
-        Add-Content -path $PathToConfigFile -value $ConsoleVerbosity
+        Add-Content -path $PathToConfigFile -value "## Stash API Key (Danger!)##"
+        Add-Content -path $PathToConfigFile -value $StashAPIKey
     }
     catch {
         write-output "Error - Something went wrong while trying add your configurations to the config file ($PathToConfigFile)" -ForegroundColor red
@@ -1116,13 +1090,13 @@ function Add-MetadataUsingOFDB{
     
                             #Provide user feedback on what has occured and add to the "file modified" counter for stats later
                             if ($filewasmodified){
-                                if ($ConsoleVerbosity -eq "Verbose"){
+                                if ($v){
                                     write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                 }
                                 $numModified++  
                             }
                             else{
-                                if ($ConsoleVerbosity -eq "Verbose"){
+                                if ($v){
                                     write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
                                 }
                                 $numUnmodified++
@@ -1261,13 +1235,13 @@ function Add-MetadataUsingOFDB{
     
                             #Provide user feedback on what has occured and add to the "file modified" counter for stats later
                             if ($filewasmodified){
-                                if ($ConsoleVerbosity -eq "Verbose"){
+                                if ($v){
                                     write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
                                 }
                                 $numModified++  
                             }
                             else{
-                                if ($ConsoleVerbosity -eq "Verbose"){
+                                if ($v){
                                     write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
                                 }
                                 $numUnmodified++
@@ -1456,12 +1430,10 @@ if (!(Test-path $PathToConfigFile)){
 $StashGQL_URL = (Get-Content $pathtoconfigfile)[1]
 $PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[3]
 $SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
-$ConsoleVerbosity = (Get-Content $pathtoconfigfile)[7]
-$StashAPIKey = (Get-Content $pathtoconfigfile)[9]
+$StashAPIKey = (Get-Content $pathtoconfigfile)[7]
 
 $PathToMissingFilesLog = "."+$directorydelimiter+"OFMetadataToStash_MissingFiles.txt"
 $pathToSanitizerScript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_Sanitizer.ps1"
-
 
 
 #Before we continue, let's make sure everything in the configuration file is good to go
@@ -1490,11 +1462,6 @@ if (!(test-path $PathToOnlyFansContent)){
     read-host "Hmm...The defined path to your OnlyFans content does not seem to exist at the location specified in your config file.`n($PathToOnlyFansContent)`n`nPress [Enter] to run through the config wizard"
     Set-Config
 }
-if($ConsoleVerbosity -notmatch '\bverbose\b|\bnormal\b'){
-    read-host "Hmm...looks like the console output verbosity setting isn't defined in the config file. No worries!`n`n Press [Enter] to run through the config wizard"
-    Set-Config
-}
-
 
 if(($SearchSpecificity -notmatch '\blow\b|\bnormal\b|\bhigh\b')){
     #Something goofy with the variable? Send the user to recreate their config file with the set-config function
@@ -1508,6 +1475,12 @@ else {
     write-output "* Path to OnlyFans Media:     $PathToOnlyFansContent"
     write-output "* Metadata Match Mode:        $searchspecificity"
     write-output "* Stash URL:                  $StashGQL_URL`n"
+    if($v){
+        write-host "Special Mode: Verbose Output"
+    }
+    if($ignorehistory){
+        write-host "Special Mode: Ignore History File"
+    }
     write-output "----------------------------------------------------`n"
     write-output "What would you like to do?"
     write-output " 1 - Add Metadata to my Stash using OnlyFans Metadata Database(s)"
