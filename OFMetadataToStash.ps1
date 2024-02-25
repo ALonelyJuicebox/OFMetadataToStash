@@ -1,4 +1,6 @@
-<#
+param ([switch]$ignorehistory, [switch]$v)
+ 
+ <#
 ---OnlyFans Metadata DB to Stash PoSH Script 0.9---
 
 AUTHOR
@@ -25,10 +27,7 @@ Import-Module PSGraphQL
 Import-Module PSSQLite
 
 #Command Line Arguments
-param (
-    [switch]$ignorehistory, #If the user doesn't want the script to make use of the history file, this will toggle its use.
-    [switch]$v #Toggles console verbosity, useful for troubleshooting
- )
+
 
 
 ### Functions
@@ -69,10 +68,10 @@ function Set-Config{
             }
         }
         do{
-            write-host "Do you have a username/password configured on your Stash? (It's optional!)"
+            write-host "`nDo you happen to have a username/password configured on your Stash?"
             $userselection = read-host "Enter your selection (Y/N)"
         }
-        while(($userselection -notmatch "Y" -and $userselection -notmatch "N"))
+        while(($userselection -notlike "Y" -and $userselection -notlike "N"))
         if($userselection -like "Y"){
             write-host "As you have set a username/password on your Stash, You'll need to provide this script with your API key."
             write-host "Navigate to this page in your browser to generate one in Stash"
@@ -85,11 +84,11 @@ function Set-Config{
         #Now we can check to ensure this address is valid-- we'll use a very simple GQL query and get the Stash version
         $StashGQL_Query = 'query version{version{version}}'
         try{
-            $stashversion = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Headers $(if ($StashAPIKey){ @{ApiKey = "$StashAPIKey" }}) | out-null
+            $stashversion = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Headers $(if ($StashAPIKey){ @{ApiKey = "$StashAPIKey" }})
         }
         catch{
             write-host "(0) Error: Could not communicate to Stash at the provided address ($StashGQL_URL)"
-            read-host "No worries, press [Enter] to start from the top."
+            read-host "No worries, press [Enter] to start from the top"
         }
     }
     while ($null -eq $stashversion)
@@ -218,9 +217,9 @@ function Get-PerformerHistory{
     $PathToHistoryFile = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"imported_dbs.sqlite"
 
     #Let's go ahead and create the history file if it does not exist
-    if(!(test-file $pathtohistoryfile)){
+    if(!(test-path $pathtohistoryfile)){
         try{
-            out-file $PathToHistoryFile
+            new-item $PathToHistoryFile
         }
         catch{
             write-host "Error 1h - Unable to write the history file to the filesystem. Permissions issue?" -ForegroundColor red
@@ -229,15 +228,10 @@ function Get-PerformerHistory{
         }
 
         #Query for defining the schema of the SQL database we're creating
-        $historyquery = 'CREATE TABLE "history" (
-        "historyID"	INTEGER NOT NULL UNIQUE,
-        "performer"	TEXT NOT NULL UNIQUE COLLATE BINARY,
-        "import_date"	TEXT NOT NULL,
-        PRIMARY KEY("historyID" AUTOINCREMENT)
-        );'
+        $historyquery = 'CREATE TABLE "history" ("historyID" INTEGER NOT NULL UNIQUE,"performer"	TEXT NOT NULL UNIQUE COLLATE BINARY,"import_date" TEXT NOT NULL,PRIMARY KEY("historyID" AUTOINCREMENT));'
 
         try{
-            $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
+            Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
         }
         catch{
             write-host "Error 2h - Unable to create a history file using SQL." -ForegroundColor red
@@ -261,15 +255,15 @@ function Get-PerformerHistory{
     if ($performerFromHistory){
 
         #Let's get the timestamp from the metdata database file
-        $metadataLastWriteTime = get-item $OFDBFullFilePath
+        $metadataLastWriteTime = get-item $currentdatabase
         $metadataLastWriteTime = $metadataLastWriteTime.LastWriteTime
 
         #If the metdata database for this performer has been modified since the last time we read this metadata database in, let's go ahead and parse it, otherwise return false so we can skip it
-        if([datetime]$metadataLastWriteTime -gt [datetime]$historytimestamp){
+        if([datetime]$metadataLastWriteTime -gt [datetime]$performerFromHistory.import_date){
             $currenttimestamp = get-date -format o
             try { 
                 $historyQuery = 'UPDATE import_date SET import_date = "'+$currenttimestamp+'" WHERE history.performer = "'+$performername+'"'
-                $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
+                Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
             }
             catch{
                 write-host "Error 4h - Something went wrong while trying to update the history file ($PathToHistoryFile)" -ForegroundColor red
@@ -285,9 +279,10 @@ function Get-PerformerHistory{
     }
     #Otherwise, this performer is entirely new to us, so let's add the performer to the history file and return true so it may be processed
     else{
+        $currenttimestamp = get-date -format o
         try { 
             $historyQuery = 'INSERT INTO history(performer, import_date) VALUES ("'+$performername+'", "'+$currenttimestamp+'")'
-            $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
+            Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
         }
         catch{
             write-host "Error 5h - Something went wrong while trying to add this performer to the history file ($PathToHistoryFile)" -ForegroundColor red
@@ -634,7 +629,7 @@ function Add-MetadataUsingOFDB{
     foreach ($currentdatabase in $OFDatabaseFilesCollection) {
         #Let's help the user see how we are progressing through this metadata database (this is the parent progress UI, there's an additional child below as well)
         $currentTotalProgress = [int]$(($totalprogressCounter/$OFDatabaseFilesCollection.count)*100)
-        Write-Progress -Activity "Total Import Progress" -Status "$currentTotalProgress% Complete" -PercentComplete $currentTotalProgress
+        Write-Progress -id 1 -Activity "Total Import Progress" -Status "$currentTotalProgress% Complete" -PercentComplete $currentTotalProgress
         $totalprogressCounter++
 
 
@@ -763,7 +758,7 @@ function Add-MetadataUsingOFDB{
                 $PerformerID = $StashGQL_Result.data.findPerformers.performers[0].id
                 $creatednewperformer = $true #We'll use this later after images have been added in order to give the performer a profile picture
                 $boolGetPerformerImage = $true #We'll use this to get an image to use for the profile picture
-                write-host "`nInfo: Added a new Performer ($performername) to Stash's database`n" -ForegroundColor Cyan
+                
                 
             }
             else{
@@ -784,7 +779,7 @@ function Add-MetadataUsingOFDB{
 
                     #Let's help the user see how we are progressing through this performer's metadata database
                     $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
-                    Write-Progress -Activity "$performername Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
+                    Write-Progress -parentId 1 -Activity "$performername Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
                     $progressCounter++
     
                     #Generating the URL for this post
@@ -1254,20 +1249,36 @@ function Add-MetadataUsingOFDB{
             #Before we move on, if we had created a new performer, let's update that performer with a profile image.
             #The only reason we don't do it earlier is that now all the images have been added and associated and it's easy to select an image and go.
             if($creatednewperformer){
-
+                
                 #First let's look for an image where this performer has been associated and get the URL, for that image
                 #Sometimes these OF downloaders pull profile/avatar photos into a specific folder. We'll look to see if we can match on that first before just choosing what we can get.
 
                 #Using the filepath of the metadata database as our starting point, we'll go a folder up and then look for an image containing the keyword "avatar"
-                $pathToAvatarImage = (get-item $OF_DBpath).Parent
-                $pathToAvatarImage = "$pathToAvatarImage"+"$directorydelimiter"+"Profile"+$directorydelimiter+"Images"
-                $pathToAvatarImage = Get-ChildItem $pathToAvatarImage where-object {$_.name -like "avatar*"}
+                $pathToAvatarImage = (get-item $currentdatabase.FullName)
+                $pathToAvatarImage = split-path -parent $pathToAvatarImage
+                $pathToAvatarImage = split-path -parent $pathToAvatarImage
+                $pathToAvatarImage = "$pathToAvatarImage"+"$directorydelimiter"+"Profile"
 
-                #If we DID find an avatar on the filesystem
-                if ($null -ne $pathToAvatarImage){
+                #If there's a profile folder to look into, let's do it
+                if((test-path $pathToAvatarImage)){
+                    $avatarfolder = "$pathToAvatarImage"+"$directorydelimiter"+"Avatars"
+                    $profileimagesfolder = "$pathToAvatarImage"+"$directorydelimiter"+"images"
 
+                    if(test-path $avatarfolder){
+                        $pathToAvatarImage =  Get-ChildItem $avatarfolder | where-object{ $_.extension -in ".jpg", ".jpeg"}
+                        $pathToAvatarImage = $pathToAvatarImage
+                    }
+                    elseif (test-path $profileimagesfolder){
+                        $pathToAvatarImage =  Get-ChildItem $profileimagesfolder | where-object{ $_.extension -in ".jpg", ".jpeg"}
+                        $pathToAvatarImage = $pathToAvatarImage
+                    }
+                    #otherwise, let's just take whatever image we can get
+                    else{
+                        $pathToAvatarImage = Get-ChildItem $pathToAvatarImage -recurse | where-object{ $_.extension -in ".jpg", ".jpeg"}
+                    }
+            
                     #Convert the image to base64. Note that this is designed for jpegs-- I don't think OnlyFans supports anything else anyway.
-                    $avatarImageBase64 = [convert]::ToBase64String((Get-Content $path -AsByteStream))
+                    $avatarImageBase64 = [convert]::ToBase64String((Get-Content $pathToAvatarImage -AsByteStream))
                     $avatarImageBase64 = "data:image/jpeg;base64,"+$avatarImageBase64
 
                     $UpdatePerformerImage_GQLQuery ='mutation PerformerUpdate($input: PerformerUpdateInput!) {
@@ -1292,6 +1303,7 @@ function Add-MetadataUsingOFDB{
                         exit
                     }
                 }
+                
                 #If we didn't find anything on the filesystem, let's just query Stash and use a random image from this performer's OF page
                 else{
                     $performerimageURL_GQLQuery = 'query FindImages(
