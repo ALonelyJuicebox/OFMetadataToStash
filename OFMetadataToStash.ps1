@@ -1255,60 +1255,19 @@ function Add-MetadataUsingOFDB{
 
                 #First let's look for an image where this performer has been associated and get the URL, for that image
                 #Sometimes these OF downloaders pull profile/avatar photos into a specific folder. We'll look to see if we can match on that first before just choosing what we can get.
-                #FINISHME
-                $performerimageURL_GQLQuery = 'query FindImages(
-                    $filter: FindFilterType
-                    $image_filter: ImageFilterType
-                    $image_ids: [Int!]
-                ) {
-                    findImages(
-                    filter: $filter,
-                    image_filter: $image_filter,
-                    image_ids: $image_ids){
-                    images{
-                        paths{
-                        image
-                        }
-                    }
-                    }
-                }'
 
-                $performerimageURLVariables_GQLQuery = '
-                {
-                    "filter": {
-                    "q": "",
-                    "page": 1,
-                    "per_page": 1,
-                    "sort": "date",
-                    "direction": "DESC"
-                    },
-                    "image_filter": {
-                    "performers": {
-                        "value": [
-                        "'+$performerID+'"
-                        ],
-                        "excludes": [],
-                        "modifier": "INCLUDES_ALL"
-                    }
-                    }
-                }'
+                #Using the filepath of the metadata database as our starting point, we'll go a folder up and then look for an image containing the keyword "avatar"
+                $pathToAvatarImage = (get-item $OF_DBpath).Parent
+                $pathToAvatarImage = "$pathToAvatarImage"+"$directorydelimiter"+"Profile"+$directorydelimiter+"Images"
+                $pathToAvatarImage = Get-ChildItem $pathToAvatarImage where-object {$_.name -like "avatar*"}
 
-                try{
-                    $performerimageURL = Invoke-GraphQLQuery -Query $performerimageURL_GQLQuery -Uri $StashGQL_URL -Variables $performerimageURLVariables_GQLQuery
-                    
-                }
-                catch{
-                    write-host "(11) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                    read-host "Press [Enter] to exit"
-                    exit
-                }
+                #If we DID find an avatar on the filesystem
+                if ($null -ne $pathToAvatarImage){
 
-                #If there are any Performer images to be used, we update the performer using the URL path.
-                if ($performerimageURL.data.findimages.images.length -ne 0){
-                    $performerimageURL = $performerimageURL.data.findimages.images.paths.image
+                    #Convert the image to base64. Note that this is designed for jpegs-- I don't think OnlyFans supports anything else anyway.
+                    $avatarImageBase64 = [convert]::ToBase64String((Get-Content $path -AsByteStream))
+                    $avatarImageBase64 = "data:image/jpeg;base64,"+$avatarImageBase64
 
-                    
                     $UpdatePerformerImage_GQLQuery ='mutation PerformerUpdate($input: PerformerUpdateInput!) {
                         performerUpdate(input: $input) {
                         id
@@ -1317,18 +1276,96 @@ function Add-MetadataUsingOFDB{
                     $UpdatePerformerImage_GQLVariables = '{
                         "input": {
                         "id": "'+$performerID+'",
-                        "image": "'+$performerimageURL+'"
+                        "image": "'+$avatarImageBase64+'"
                         }
                     }'
 
                     try{
-                        $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
+                        Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
                     }
                     catch{
-                        write-host "(12) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                        write-host "(46) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
                         write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                         read-host "Press [Enter] to exit"
                         exit
+                    }
+                }
+                #If we didn't find anything on the filesystem, let's just query Stash and use a random image from this performer's OF page
+                else{
+                    $performerimageURL_GQLQuery = 'query FindImages(
+                        $filter: FindFilterType
+                        $image_filter: ImageFilterType
+                        $image_ids: [Int!]
+                    ) {
+                        findImages(
+                        filter: $filter,
+                        image_filter: $image_filter,
+                        image_ids: $image_ids){
+                        images{
+                            paths{
+                            image
+                            }
+                        }
+                        }
+                    }'
+    
+                    $performerimageURLVariables_GQLQuery = '
+                    {
+                        "filter": {
+                        "q": "",
+                        "page": 1,
+                        "per_page": 1,
+                        "sort": "date",
+                        "direction": "DESC"
+                        },
+                        "image_filter": {
+                        "performers": {
+                            "value": [
+                            "'+$performerID+'"
+                            ],
+                            "excludes": [],
+                            "modifier": "INCLUDES_ALL"
+                        }
+                        }
+                    }'
+    
+                    try{
+                        $performerimageURL = Invoke-GraphQLQuery -Query $performerimageURL_GQLQuery -Uri $StashGQL_URL -Variables $performerimageURLVariables_GQLQuery
+                        
+                    }
+                    catch{
+                        write-host "(11) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                        read-host "Press [Enter] to exit"
+                        exit
+                    }
+    
+                    #If there are any Performer images to be used, we update the performer using the URL path.
+                    if ($performerimageURL.data.findimages.images.length -ne 0){
+                        $performerimageURL = $performerimageURL.data.findimages.images.paths.image
+    
+                        
+                        $UpdatePerformerImage_GQLQuery ='mutation PerformerUpdate($input: PerformerUpdateInput!) {
+                            performerUpdate(input: $input) {
+                            id
+                            }
+                        }'
+                        $UpdatePerformerImage_GQLVariables = '{
+                            "input": {
+                            "id": "'+$performerID+'",
+                            "image": "'+$performerimageURL+'"
+                            }
+                        }'
+    
+                        try{
+                            $performerimageURL = Invoke-GraphQLQuery -Query $UpdatePerformerImage_GQLQuery -Uri $StashGQL_URL -Variables $UpdatePerformerImage_GQLVariables | out-null
+                        }
+                        catch{
+                            write-host "(12) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                            read-host "Press [Enter] to exit"
+                            exit
+                        }
                     }
                 }
             }
@@ -1346,7 +1383,6 @@ function Add-MetadataUsingOFDB{
 
     write-host "`n****** Import Complete ******"-ForegroundColor Cyan
     write-output "- Modified Scenes/Images: $numModified`n- Scenes/Images that already had metadata: $numUnmodified" 
-
     #Some quick date arithmetic to calculate elapsed time
     $scriptEndTime = Get-Date
     $scriptduration = ($scriptEndTime-$scriptStartTime).totalseconds
