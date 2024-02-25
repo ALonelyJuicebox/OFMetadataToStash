@@ -218,6 +218,95 @@ function Set-Config{
     
 } #End Set-Config
 
+#Get-PerformerHistory does a check to see if a particular metadata database file actually needs to be parsed based on a history file. Increments history file and returns true if it does, returns false if it does not.
+function Get-PerformerHistory{
+    #Location for the history file to be stored
+    $PathToHistoryFile = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"imported_dbs.sqlite"
+
+    #Let's go ahead and create the history file if it does not exist
+    if(!(test-file $pathtohistoryfile)){
+        try{
+            out-file $PathToHistoryFile
+        }
+        catch{
+            write-host "Error 1h - Unable to write the history file to the filesystem. Permissions issue?" -ForegroundColor red
+            read-host "Press [Enter] to exit"
+            exit
+        }
+
+        #Query for defining the schema of the SQL database we're creating
+        $historyquery = 'CREATE TABLE "history" (
+        "historyID"	INTEGER NOT NULL UNIQUE,
+        "performer"	TEXT NOT NULL UNIQUE COLLATE BINARY,
+        "import_date"	TEXT NOT NULL,
+        PRIMARY KEY("historyID" AUTOINCREMENT)
+        );'
+
+        try{
+            $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
+        }
+        catch{
+            write-host "Error 2h - Unable to create a history file using SQL." -ForegroundColor red
+            read-host "Press [Enter] to exit"
+            exit
+        }
+    }
+
+    #First let's check to see if this performer is even in the history file
+    try{
+        $historyQuery = 'SELECT * FROM history WHERE history.performer = "'+$performername+'"'
+        $performerFromHistory = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
+    }
+    catch{
+        write-host "Error 3h - Something went wrong while trying to read from history file ($PathToHistoryFile)" -ForegroundColor red
+        read-host "Press [Enter] to exit"
+        exit
+    }
+
+    #If this performer DOES exist in the history file...
+    if ($performerFromHistory){
+
+        #Let's get the timestamp from the metdata database file
+        $metadataLastWriteTime = get-item $OFDBFullFilePath
+        $metadataLastWriteTime = $metadataLastWriteTime.LastWriteTime
+
+        #If the metdata database for this performer has been modified since the last time we read this metadata database in, let's go ahead and parse it, otherwise return false so we can skip it
+        if([datetime]$metadataLastWriteTime -gt [datetime]$historytimestamp){
+            $currenttimestamp = get-date -format o
+            try { 
+                $historyQuery = 'UPDATE import_date SET import_date = "'+$currenttimestamp+'" WHERE history.performer = "'+$performername+'"'
+                $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
+            }
+            catch{
+                write-host "Error 4h - Something went wrong while trying to update the history file ($PathToHistoryFile)" -ForegroundColor red
+                read-output "Press [Enter] to exit"
+                exit
+            }
+            return $true
+        }
+        else{
+            write-host "Nothing to update for this performer! Skipping..."
+            return $false
+        }
+    }
+    #Otherwise, this performer is entirely new to us, so let's add the performer to the history file and return true so it may be processed
+    else{
+        try { 
+            $historyQuery = 'INSERT INTO history(performer, import_date) VALUES ("'+$performername+'", "'+$currenttimestamp+'")'
+            $historyTimestamp = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
+        }
+        catch{
+            write-host "Error 5h - Something went wrong while trying to add this performer to the history file ($PathToHistoryFile)" -ForegroundColor red
+            read-output "Press [Enter] to exit"
+            exit
+        }
+        return $true
+    }
+
+
+
+} #End Get-PerformerHistory
+
 #Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
 function Add-MetadataUsingOFDB{
     #Playing it safe and asking the user to back up their database first
@@ -681,420 +770,300 @@ function Add-MetadataUsingOFDB{
                 $boolGetPerformerImage = $false
             }
 
+            #Let's check to see if we need to import this performer based on the history file. If this function returns false, move on to the next performer. 
+            if (Get-PerformerHistory -or $ignorehistory -eq $true){
+                #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
+                $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
+                $OF_DBpath = $currentdatabase.fullname 
+                $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
 
+                $progressCounter = 1 #Used for the progress UI
+                foreach ($OFDBMedia in $OFDBQueryResult){
 
-            #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
-            $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
-            $OF_DBpath = $currentdatabase.fullname 
-            $OFDBQueryResult = Invoke-SqliteQuery -Query $Query -DataSource $OF_DBpath
-
-            $progressCounter = 1 #Used for the progress UI
-            foreach ($OFDBMedia in $OFDBQueryResult){
-
-                #Let's help the user see how we are progressing through this metadata database
-                $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
-                Write-Progress -Activity "Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
-                $progressCounter++
-
-                #Generating the URL for this post
-                $linktoOFpost = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
-                
-                #Reformatting the date to something stash appropriate
-                $creationdatefromOF = $OFDBMedia.created_at
-                $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
-                
-                $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
-                $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
-                $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
-                $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
-
-                #Storing separate variants of these variables with apostrophy and backslash sanitization so they don't ruin our SQL/GQL queries
-                $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
-                $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
-                $OFDBfilenameForQuery = $OFDBfilename.replace("\","\\") 
-                $OFDBdirectoryForQuery = $OFDBdirectory.replace("\","\\") 
-
-                #Note that the OF downloader quantifies gifs as videos for some reason
-                #Since Stash doesn't (and rightfully so), we need to account for this
-                if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
-                    $mediatype = "video"
-                }
-                #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
-                elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
-                    $mediatype = "image"
-                }
-
-                #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
-                if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
-                    #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
-                    if ($boolGetPerformerImage){
-                        $boolGetPerformerImage = $false #Let's make sure we don't pull any more photos
-                    }
-                    else{
-                        continue #Skip to the next item in this foreach, user only wants to process videos
-                    }
-                }
-
-                if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
-                    continue #Skip to the next item in this foreach, user only wants to process images
-                }
-                
-                #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
-                #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
-                if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'             
-                }
-                #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
-                elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'
-                }
-                #Low specificity, search for videos based on filesize only
-                elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'   
-                }
-                #Low specificity, search for images based on filesize only
-                elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'
-                }
-
-                #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'
-                }
-
-                #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
-                else{
-                    $StashGQL_Query = 'mutation {
-                        querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
-                        rows
-                      }
-                    }'
-                }
-
-                #Now lets try running the GQL query and see if we have a match in the Stash DB
-                try{
-                    $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
-                }
-                catch{
-                    write-host "(4) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                    read-host "Press [Enter] to exit"
-                    exit
-                }
-
-                if ($StashGQL_Result.data.querySQL.rows.length -ne 0){
-
-                    #Because of how GQL returns data, these values are just positions in the $StashGQLQuery array. Not super memorable, so I'm putting them in variables. 
-                    $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
-                    $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
-                }
-                
-                #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
-                if ($StashGQL_Result.data.querySQL.rows.length -eq 0 ){
-                    if (Test-Path $OFDBFullFilePath){
-                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                    }
-                    #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
-                    else{
-                        write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                        Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
-                        $nummissingfiles++
-                    }
-                }
-                #Otherwise we have found a match! let's process the matching result and add the metadata we've found
-                else{
+                    #Let's help the user see how we are progressing through this metadata database
+                    $currentProgress = [int]$(($progressCounter/$OFDBQueryResult.count)*100)
+                    Write-Progress -Activity "Import Progress" -Status "$currentProgress% Complete" -PercentComplete $currentProgress
+                    $progressCounter++
+    
+                    #Generating the URL for this post
+                    $linktoOFpost = "https://www.onlyfans.com/"+$OFDBMedia.post_ID+"/"+$performername
                     
-                    #Before processing, and for the sake of accuracy, if there are multiple filesize matches (specifically for the normal specificity mode), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
-                    if (($StashGQL_Result.data.querySQL.rows.length -gt 1) -and ($searchspecificity -match "normal") ){
-                        #Search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                        if ($mediatype -eq "video"){
-                           
-                            $StashGQL_Query = 'mutation {
-                                querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
-                                rows
-                              }
-                            }'
-                        }
-
-                        #Search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
-                        elseif ($mediatype -eq "image" ){
-                            
-                            $StashGQL_Query = 'mutation {
-                                querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
-                                rows
-                              }
-                            }'
-                        }
-
-                        #Now lets try running the GQL query and try to find the file in the Stash DB
-                        try{
-                            $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
-                        }
-                        catch{
-                            write-host "(5) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                            read-host "Press [Enter] to exit"
-                            exit
-                        }
-
-                        #If we have a match, substitute it in and lets get that metadata into the Stash DB
-                        if($StashGQL_Result_2.data.querySQL.rows -eq 1){
-                            $StashGQL_Result = $AlternativeStashGQL_Result
-                            $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
-                            $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
-                        } 
-                    }
-
-                    #Creating the title we want for the media, and defining Stash details for this media.
-                    $proposedtitle = "$performername - $creationdatefromOF"
-                    $detailsToAddToStash = $OFDBMedia.text
-
+                    #Reformatting the date to something stash appropriate
+                    $creationdatefromOF = $OFDBMedia.created_at
+                    $creationdatefromOF = Get-Date $creationdatefromOF -format "yyyy-MM-dd"
                     
-                    #Performers love to put links in their posts sometimes. Let's scrub those out in addition to any common HTML bits
-                    $detailsToAddToStash = $detailsToAddToStash.Replace("<br />","")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href=","")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace("<a href =","")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace('"/',"")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace('">',"")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace("</a>"," ")
-                    $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
-
-                    #For some reason the invoke-graphqlquery module doesn't quite escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
-                    $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
-                    $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
-                    $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
-                    $detailsToAddToStash = $detailsToAddToStash.replace('“','\"') #literally removing the curly quote entirely
-                    $detailsToAddToStash = $detailsToAddToStash.replace('”','\"') #literally removing the curly quote entirely
-              
-                    $proposedtitle = $proposedtitle.replace("'","''")
-                    $proposedtitle = $proposedtitle.replace("\","\\")
-                    $proposedtitle = $proposedtitle.replace('"','\"')
-                    $proposedtitle = $proposedtitle.replace('“','\"') #literally removing the curly quote entirely
-                    $proposedtitle = $proposedtitle.replace('”','\"') #literally removing the curly quote entirely
-
-                    #Let's check to see if this is a file that already has metadata.
-                    #For Videos, we check the title and the details
-                    #For Images, we only check title (for now)
-                    #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
-                    if ($mediatype -eq "video"){
-                        #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
-                        $filewasmodified = $false
-
-                        #Let's determine if this scene already has the right performer associated to it
-                        $StashGQL_Query = 'query FindScene($id:ID!) {
-                            findScene(id: $id){
-                                performers {
-                                    id 
-                                }
-                            }
-                        
-                        }'
-                        $StashGQL_QueryVariables = '{
-                                "id": "'+$CurrentFileID+'"
-                        }' 
-                        
-                        try{
-                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
-                        }
-                        catch{
-                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                            read-host "Press [Enter] to exit"
-                            exit
-                        }
-
-                        $performermatch = $false
-                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
-                            foreach ($performer in $DiscoveredPerformerIDFromStash.data.findscene.performers.id){
-                                if($performer -eq $performerid){  
-                                    $performermatch = $true
-                                    break
-                                }
-                            }
-                        }
-                        if (!$performermatch){
-                            $filewasmodified = $true
-                            $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
-                                sceneUpdate(input: $sceneUpdateInput){
-                                    id
-                                    performers{
-                                        id
-                                    }
-                                }
-                            }'
-                            $StashGQL_QueryVariables = ' {
-                                "sceneUpdateInput": {
-                                    "id": "'+$CurrentFileID+'",
-                                    "performer_ids": "'+$performerID+'"
-                                }
-                            }'
-                            try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
-                            }
-                            catch{
-                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                                read-host "Press [Enter] to exit"
-                                exit
-                            }
-                        }
-
-                        #If it's necessary, update the scene by modifying the title and adding details
-                        if($CurrentFileTitle -ne $proposedtitle){
-                            $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
-                                sceneUpdate(input: $sceneUpdateInput){
-                                  id
-                                  title
-                                  date
-                                  studio {
-                                    id
-                                  }
-                                  details
-                                  urls
-                                }
-                              }'  
-                            $StashGQL_QueryVariables = '{
-                                "sceneUpdateInput": {
-                                    "id": "'+$CurrentFileID+'",
-                                    "title": "'+$proposedtitle+'",
-                                    "date": "'+$creationdatefromOF+'",
-                                    "studio_id": "'+$OnlyFansStudioID+'",
-                                    "details": "'+$detailsToAddToStash+'",
-                                    "urls": "'+$linktoOFpost+'"
-                                }
-                            }'
-
-                            try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -escapehandling EscapeNonAscii | out-null
-                            }
-                            catch{
-                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                                read-host "Press [Enter] to exit" 
-                                exit
-                            }
-
-                            $filewasmodified = $true
-                        }
-
-                        #Provide user feedback on what has occured and add to the "file modified" counter for stats later
-                        if ($filewasmodified){
-                            if ($ConsoleVerbosity -eq "Verbose"){
-                                write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
-                            }
-                            $numModified++  
+                    $OFDBfilesize = $OFDBMedia.size #filesize (in bytes) of the media, from the OF DB
+                    $OFDBfilename = $OFDBMedia.filename #This defines filename of the media, from the OF DB
+                    $OFDBdirectory = $OFDBMedia.directory #This defines the file directory of the media, from the OF DB
+                    $OFDBFullFilePath = $OFDBdirectory+$directorydelimiter+$OFDBfilename #defines the full file path, using the OS appropriate delimeter
+    
+                    #Storing separate variants of these variables with apostrophy and backslash sanitization so they don't ruin our SQL/GQL queries
+                    $OFDBfilenameForQuery = $OFDBfilename.replace("'","''") 
+                    $OFDBdirectoryForQuery = $OFDBdirectory.replace("'","''") 
+                    $OFDBfilenameForQuery = $OFDBfilename.replace("\","\\") 
+                    $OFDBdirectoryForQuery = $OFDBdirectory.replace("\","\\") 
+    
+                    #Note that the OF downloader quantifies gifs as videos for some reason
+                    #Since Stash doesn't (and rightfully so), we need to account for this
+                    if(($OFDBMedia.media_type -eq "videos") -and ($OFDBfilename -notlike "*.gif")){
+                        $mediatype = "video"
+                    }
+                    #Condition for images. Again, we have to add an extra condition just in case the image is a gif due to the DG database
+                    elseif(($OFDBMedia.media_type -eq "images") -or ($OFDBfilename -like "*.gif")){
+                        $mediatype = "image"
+                    }
+    
+                    #Depending on the user preference, we may not want to actually process the media we're currently looking at. Let's check before continuing.
+                    if (($mediaToProcessSelector -eq 2) -and ($mediatype -eq "image")){
+                        #There's a scenario where because the user has not pulled any images for this performer, there will be no performer image. In that scenario, lets pull exactly one image for this purpose
+                        if ($boolGetPerformerImage){
+                            $boolGetPerformerImage = $false #Let's make sure we don't pull any more photos
                         }
                         else{
-                            if ($ConsoleVerbosity -eq "Verbose"){
-                                write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
-                            }
-                            $numUnmodified++
+                            continue #Skip to the next item in this foreach, user only wants to process videos
                         }
                     }
-
-                    #For images
-                    else{
-                        #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
-                        $filewasmodified = $false
-
-                        #Let's determine if this Image already has the right performer associated to it
-                        $StashGQL_Query = 'query FindImage($id:ID!) {
-                            findImage(id: $id){
-                                performers {
-                                    id 
-                                }
-                            }
-                        
+    
+                    if (($mediaToProcessSelector -eq 3) -and ($mediatype -eq "video")){
+                        continue #Skip to the next item in this foreach, user only wants to process images
+                    }
+                    
+                    #Depending on user preference, we want to be more/less specific with our SQL queries to the Stash DB here, as determined by this condition tree (defined in order of percieved popularity)
+                    #Normal specificity, search for videos based on having the performer name somewhere in the path and a matching filesize
+                    if ($mediatype -eq "video" -and $searchspecificity -match "normal"){
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
+                        }'             
+                    }
+                    #Normal specificity, search for images based on having the performer name somewhere in the path and a matching filesize
+                    elseif ($mediatype -eq "image" -and $searchspecificity -match "normal"){
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
                         }'
-                        $StashGQL_QueryVariables = '{
-                                "id": "'+$CurrentFileID+'"
-                        }' 
+                    }
+                    #Low specificity, search for videos based on filesize only
+                    elseif ($mediatype -eq "video" -and $searchspecificity -match "low"){
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
+                        }'   
+                    }
+                    #Low specificity, search for images based on filesize only
+                    elseif ($mediatype -eq "image" -and $searchspecificity -match "low"){
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
+                        }'
+                    }
+    
+                    #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                    elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
+                        }'
+                    }
+    
+                    #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                    else{
+                        $StashGQL_Query = 'mutation {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                            rows
+                          }
+                        }'
+                    }
+    
+                    #Now lets try running the GQL query and see if we have a match in the Stash DB
+                    try{
+                        $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
+                    }
+                    catch{
+                        write-host "(4) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                        write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                        read-host "Press [Enter] to exit"
+                        exit
+                    }
+    
+                    if ($StashGQL_Result.data.querySQL.rows.length -ne 0){
+    
+                        #Because of how GQL returns data, these values are just positions in the $StashGQLQuery array. Not super memorable, so I'm putting them in variables. 
+                        $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
+                        $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
+                    }
+                    
+                    #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
+                    if ($StashGQL_Result.data.querySQL.rows.length -eq 0 ){
+                        if (Test-Path $OFDBFullFilePath){
+                            write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                        }
+                        #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
+                        else{
+                            write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
+                            Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
+                            $nummissingfiles++
+                        }
+                    }
+                    #Otherwise we have found a match! let's process the matching result and add the metadata we've found
+                    else{
                         
-                        try{
-                            $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
-                        }
-                        catch{
-                            write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
-                            write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
-                            read-host "Press [Enter] to exit"
-                            exit
-                        }
-
-                        $performermatch = $false
-                        if ($null -ne $DiscoveredPerformerIDFromStash.data.findimage.performers.length){
-                            foreach ($performer in $DiscoveredPerformerIDFromStash.data.findimage.performers.id){
-                                if($performer -eq $performerid){       
-                                    $performermatch = $true
-                                    break
-                                }
+                        #Before processing, and for the sake of accuracy, if there are multiple filesize matches (specifically for the normal specificity mode), add a filename check to the query to see if we can match more specifically. If not, just use whatever matched that initial query.
+                        if (($StashGQL_Result.data.querySQL.rows.length -gt 1) -and ($searchspecificity -match "normal") ){
+                            #Search for videos based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                            if ($mediatype -eq "video"){
+                               
+                                $StashGQL_Query = 'mutation {
+                                    querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                                    rows
+                                  }
+                                }'
                             }
-                        }
-                        if (!$performermatch){
-                            $filewasmodified = $true
-                            $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
-                                imageUpdate(input: $imageUpdateInput){
-                                    id
-                                    performers{
-                                        id
-                                    }
-                                }
-                            }'
-                            $StashGQL_QueryVariables = ' {
-                                "imageUpdateInput": {
-                                    "id": "'+$CurrentFileID+'",
-                                    "performer_ids": "'+$performerID+'"
-                                }
-                            }'
+    
+                            #Search for images based on having the performer name somewhere in the path and a matching filesize (and filename in this instance)
+                            elseif ($mediatype -eq "image" ){
+                                
+                                $StashGQL_Query = 'mutation {
+                                    querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path LIKE ''%'+$performername+'%'' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                                    rows
+                                  }
+                                }'
+                            }
+    
+                            #Now lets try running the GQL query and try to find the file in the Stash DB
                             try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                $AlternativeStashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL 
                             }
                             catch{
-                                write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "(5) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
                                 write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
-                            
+    
+                            #If we have a match, substitute it in and lets get that metadata into the Stash DB
+                            if($StashGQL_Result_2.data.querySQL.rows -eq 1){
+                                $StashGQL_Result = $AlternativeStashGQL_Result
+                                $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
+                                $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
+                            } 
                         }
-
-                        #If it's necessary, update the image by modifying the title and adding details
-                        if($CurrentFileTitle -ne $proposedtitle){
-                            if ($boolSetImageDetails -eq $true){
-                                $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
-                                    imageUpdate(input: $imageUpdateInput){
+    
+                        #Creating the title we want for the media, and defining Stash details for this media.
+                        $proposedtitle = "$performername - $creationdatefromOF"
+                        $detailsToAddToStash = $OFDBMedia.text
+    
+                        
+                        #Performers love to put links in their posts sometimes. Let's scrub those out in addition to any common HTML bits
+                        $detailsToAddToStash = $detailsToAddToStash.Replace("<br />","")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace("<a href=","")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace("<a href =","")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace('"/',"")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace('">',"")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace("</a>"," ")
+                        $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
+    
+                        #For some reason the invoke-graphqlquery module doesn't quite escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
+                        $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
+                        $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
+                        $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
+                        $detailsToAddToStash = $detailsToAddToStash.replace('“','\"') #literally removing the curly quote entirely
+                        $detailsToAddToStash = $detailsToAddToStash.replace('”','\"') #literally removing the curly quote entirely
+                  
+                        $proposedtitle = $proposedtitle.replace("'","''")
+                        $proposedtitle = $proposedtitle.replace("\","\\")
+                        $proposedtitle = $proposedtitle.replace('"','\"')
+                        $proposedtitle = $proposedtitle.replace('“','\"') #literally removing the curly quote entirely
+                        $proposedtitle = $proposedtitle.replace('”','\"') #literally removing the curly quote entirely
+    
+                        #Let's check to see if this is a file that already has metadata.
+                        #For Videos, we check the title and the details
+                        #For Images, we only check title (for now)
+                        #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
+                        if ($mediatype -eq "video"){
+                            #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
+                            $filewasmodified = $false
+    
+                            #Let's determine if this scene already has the right performer associated to it
+                            $StashGQL_Query = 'query FindScene($id:ID!) {
+                                findScene(id: $id){
+                                    performers {
+                                        id 
+                                    }
+                                }
+                            
+                            }'
+                            $StashGQL_QueryVariables = '{
+                                    "id": "'+$CurrentFileID+'"
+                            }' 
+                            
+                            try{
+                                $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
+                            }
+                            catch{
+                                write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                read-host "Press [Enter] to exit"
+                                exit
+                            }
+    
+                            $performermatch = $false
+                            if ($null -ne $DiscoveredPerformerIDFromStash.data.findscene.performers.length){
+                                foreach ($performer in $DiscoveredPerformerIDFromStash.data.findscene.performers.id){
+                                    if($performer -eq $performerid){  
+                                        $performermatch = $true
+                                        break
+                                    }
+                                }
+                            }
+                            if (!$performermatch){
+                                $filewasmodified = $true
+                                $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
+                                    sceneUpdate(input: $sceneUpdateInput){
+                                        id
+                                        performers{
+                                            id
+                                        }
+                                    }
+                                }'
+                                $StashGQL_QueryVariables = ' {
+                                    "sceneUpdateInput": {
+                                        "id": "'+$CurrentFileID+'",
+                                        "performer_ids": "'+$performerID+'"
+                                    }
+                                }'
+                                try{
+                                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                }
+                                catch{
+                                    write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                    read-host "Press [Enter] to exit"
+                                    exit
+                                }
+                            }
+    
+                            #If it's necessary, update the scene by modifying the title and adding details
+                            if($CurrentFileTitle -ne $proposedtitle){
+                                $StashGQL_Query = 'mutation sceneUpdate($sceneUpdateInput: SceneUpdateInput!){
+                                    sceneUpdate(input: $sceneUpdateInput){
                                       id
                                       title
                                       date
                                       studio {
                                         id
                                       }
-                                      urls
                                       details
+                                      urls
                                     }
                                   }'  
-
                                 $StashGQL_QueryVariables = '{
-                                    "imageUpdateInput": {
+                                    "sceneUpdateInput": {
                                         "id": "'+$CurrentFileID+'",
                                         "title": "'+$proposedtitle+'",
                                         "date": "'+$creationdatefromOF+'",
@@ -1103,61 +1072,183 @@ function Add-MetadataUsingOFDB{
                                         "urls": "'+$linktoOFpost+'"
                                     }
                                 }'
+    
+                                try{
+                                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -escapehandling EscapeNonAscii | out-null
+                                }
+                                catch{
+                                    write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                    read-host "Press [Enter] to exit" 
+                                    exit
+                                }
+    
+                                $filewasmodified = $true
+                            }
+    
+                            #Provide user feedback on what has occured and add to the "file modified" counter for stats later
+                            if ($filewasmodified){
+                                if ($ConsoleVerbosity -eq "Verbose"){
+                                    write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                }
+                                $numModified++  
                             }
                             else{
-                                $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
-                                    imageUpdate(input: $imageUpdateInput){
-                                      id
-                                      title
-                                      date
-                                      studio {
-                                        id
-                                      }
-                                      urls
-                                    }
-                                  }'  
-
-                                $StashGQL_QueryVariables = '{
-                                    "imageUpdateInput": {
-                                        "id": "'+$CurrentFileID+'",
-                                        "title": "'+$proposedtitle+'",
-                                        "date": "'+$creationdatefromOF+'",
-                                        "studio_id": "'+$OnlyFansStudioID+'",
-                                        "urls": "'+$linktoOFpost+'"
-                                    }
-                                }'
+                                if ($ConsoleVerbosity -eq "Verbose"){
+                                    write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                }
+                                $numUnmodified++
                             }
+                        }
+    
+                        #For images
+                        else{
+                            #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
+                            $filewasmodified = $false
+    
+                            #Let's determine if this Image already has the right performer associated to it
+                            $StashGQL_Query = 'query FindImage($id:ID!) {
+                                findImage(id: $id){
+                                    performers {
+                                        id 
+                                    }
+                                }
                             
+                            }'
+                            $StashGQL_QueryVariables = '{
+                                    "id": "'+$CurrentFileID+'"
+                            }' 
                             
                             try{
-                                Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                $DiscoveredPerformerIDFromStash = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables
                             }
                             catch{
-                                write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                write-host "(6) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
                                 write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
                                 read-host "Press [Enter] to exit"
                                 exit
                             }
-
-                            $filewasmodified = $true
-                        }
-
-                        #Provide user feedback on what has occured and add to the "file modified" counter for stats later
-                        if ($filewasmodified){
-                            if ($ConsoleVerbosity -eq "Verbose"){
-                                write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+    
+                            $performermatch = $false
+                            if ($null -ne $DiscoveredPerformerIDFromStash.data.findimage.performers.length){
+                                foreach ($performer in $DiscoveredPerformerIDFromStash.data.findimage.performers.id){
+                                    if($performer -eq $performerid){       
+                                        $performermatch = $true
+                                        break
+                                    }
+                                }
                             }
-                            $numModified++  
-                        }
-                        else{
-                            if ($ConsoleVerbosity -eq "Verbose"){
-                                write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                            if (!$performermatch){
+                                $filewasmodified = $true
+                                $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                    imageUpdate(input: $imageUpdateInput){
+                                        id
+                                        performers{
+                                            id
+                                        }
+                                    }
+                                }'
+                                $StashGQL_QueryVariables = ' {
+                                    "imageUpdateInput": {
+                                        "id": "'+$CurrentFileID+'",
+                                        "performer_ids": "'+$performerID+'"
+                                    }
+                                }'
+                                try{
+                                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                }
+                                catch{
+                                    write-host "(7) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                    read-host "Press [Enter] to exit"
+                                    exit
+                                }
+                                
                             }
-                            $numUnmodified++
-                        }
-                    } 
+    
+                            #If it's necessary, update the image by modifying the title and adding details
+                            if($CurrentFileTitle -ne $proposedtitle){
+                                if ($boolSetImageDetails -eq $true){
+                                    $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                        imageUpdate(input: $imageUpdateInput){
+                                          id
+                                          title
+                                          date
+                                          studio {
+                                            id
+                                          }
+                                          urls
+                                          details
+                                        }
+                                      }'  
+    
+                                    $StashGQL_QueryVariables = '{
+                                        "imageUpdateInput": {
+                                            "id": "'+$CurrentFileID+'",
+                                            "title": "'+$proposedtitle+'",
+                                            "date": "'+$creationdatefromOF+'",
+                                            "studio_id": "'+$OnlyFansStudioID+'",
+                                            "details": "'+$detailsToAddToStash+'",
+                                            "urls": "'+$linktoOFpost+'"
+                                        }
+                                    }'
+                                }
+                                else{
+                                    $StashGQL_Query = 'mutation imageUpdate($imageUpdateInput: ImageUpdateInput!){
+                                        imageUpdate(input: $imageUpdateInput){
+                                          id
+                                          title
+                                          date
+                                          studio {
+                                            id
+                                          }
+                                          urls
+                                        }
+                                      }'  
+    
+                                    $StashGQL_QueryVariables = '{
+                                        "imageUpdateInput": {
+                                            "id": "'+$CurrentFileID+'",
+                                            "title": "'+$proposedtitle+'",
+                                            "date": "'+$creationdatefromOF+'",
+                                            "studio_id": "'+$OnlyFansStudioID+'",
+                                            "urls": "'+$linktoOFpost+'"
+                                        }
+                                    }'
+                                }
+                                
+                                
+                                try{
+                                    Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables | out-null
+                                }
+                                catch{
+                                    write-host "(8) Error: There was an issue with the GraphQL query/mutation." -ForegroundColor red
+                                    write-host "Additional Error Info: `n`n$StashGQL_Query `n$StashGQL_QueryVariables"
+                                    read-host "Press [Enter] to exit"
+                                    exit
+                                }
+    
+                                $filewasmodified = $true
+                            }
+    
+                            #Provide user feedback on what has occured and add to the "file modified" counter for stats later
+                            if ($filewasmodified){
+                                if ($ConsoleVerbosity -eq "Verbose"){
+                                    write-output "- Added metadata to Stash's database for the following file:`n   $OFDBFullFilePath" 
+                                }
+                                $numModified++  
+                            }
+                            else{
+                                if ($ConsoleVerbosity -eq "Verbose"){
+                                    write-output "- This file already has metadata, moving on...`n   $OFDBFullFilePath"
+                                }
+                                $numUnmodified++
+                            }
+                        } 
+                    }
                 }
             }
+     
             #Before we move on, if we had created a new performer, let's update that performer with a profile image.
             #The only reason we don't do it earlier is that now all the images have been added and associated and it's easy to select an image and go.
             if($creatednewperformer){
