@@ -553,10 +553,16 @@ function Add-MetadataUsingOFDB{
     }
     ' 
     $StashGQL_QueryVariables = '{
-    "filter": {
-        "q": "OnlyFans"
-    }
-    }'
+        "filter": {
+          "q": ""
+        },
+        "studio_filter": {
+          "name": {
+            "value": "OnlyFans",
+            "modifier": "EQUALS"
+          }
+        }
+      }'
     try{
         $StashGQL_Result = Invoke-GraphQLQuery -Query $StashGQL_Query -Uri $StashGQL_URL -Variables $StashGQL_QueryVariables -Headers $(if ($StashAPIKey){ @{ApiKey = "$StashAPIKey" }})
     }
