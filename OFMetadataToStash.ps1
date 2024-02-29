@@ -147,9 +147,9 @@ function Set-Config{
     write-output "(3 of 3) Define your Metadata Match Mode"
     write-output "    * When importing OnlyFans Metadata, some users may want to tailor how this script matches metadata to files"
     write-output "    * If you are an average user, just set this to 'Normal'"
-    write-output "Option 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
+    write-output "`nOption 1: Normal - Will match based on Filesize and the Performer name being somewhere in the file path (Recommended)"
     write-output "Option 2: Low    - Will match based only on a matching Filesize"
-    write-output "Option 3: High   - Will match based on a matching path and a matching Filesize"
+    write-output "Option 3: High   - Will match based on Filename and a matching Filesize"
 
 
     $specificityselection = 0;
@@ -869,19 +869,19 @@ function Add-MetadataUsingOFDB{
                         }'
                     }
     
-                    #High specificity, search for videos based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                    #High specificity, search for videos based on matching file name between OnlyFans DB and Stash DB as well as matching the filesize. 
                     elseif ($mediatype -eq "video" -and $searchspecificity -match "high"){
                         $StashGQL_Query = 'mutation {
-                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, scenes.id AS scenes_id, scenes.title AS scenes_title, scenes.details AS scenes_details FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN scenes_files ON files.id = scenes_files.file_id JOIN scenes ON scenes.id = scenes_files.scene_id WHERE files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
                             rows
                           }
                         }'
                     }
     
-                    #High specificity, search for images based on matching file path between OnlyFans DB and Stash DB as well as matching the filesize. 
+                    #High specificity, search for images based on matching file name between OnlyFans DB and Stash DB as well as matching the filesize. 
                     else{
                         $StashGQL_Query = 'mutation {
-                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE path ='''+$OFDBdirectoryForQuery+''' AND files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
+                            querySQL(sql: "SELECT folders.path, files.basename, files.size, files.id AS files_id, folders.id AS folders_id, images.id AS images_id, images.title AS images_title FROM files JOIN folders ON files.parent_folder_id=folders.id JOIN images_files ON files.id = images_files.file_id JOIN images ON images.id = images_files.image_id WHERE files.basename ='''+$OFDBfilenameForQuery+''' AND size = '''+$OFDBfilesize+'''") {
                             rows
                           }
                         }'
