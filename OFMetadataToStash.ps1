@@ -1,4 +1,4 @@
-param ([switch]$ignorehistory, [switch]$v)
+param ([switch]$ignorehistory, [switch]$randomavatar, [switch]$v)
  
  <#
 ---OnlyFans Metadata DB to Stash PoSH Script 0.9---
@@ -901,7 +901,7 @@ function Add-MetadataUsingOFDB{
                     if ($StashGQL_Result.data.querySQL.rows.length -ne 0){
     
                         #Because of how GQL returns data, these values are just positions in the $StashGQLQuery array. Not super memorable, so I'm putting them in variables. 
-                        $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID
+                        $CurrentFileID = $StashGQL_Result.data.querySQL.rows[0][5] #This represents either the scene ID or the image ID. To be generic, I'm defining it as "CurrentFileID"
                         $CurrentFileTitle = $StashGQL_Result.data.querySQL.rows[0][6]
                     }
                     
@@ -997,7 +997,6 @@ function Add-MetadataUsingOFDB{
                         $detailsToAddToStash = $detailsToAddToStash.Replace('target="_blank"',"")
     
                         #For some reason the invoke-graphqlquery module doesn't quite escape single/double quotes ' " (or their curly variants) or backslashs \ very well so let's do it manually for the sake of our JSON query
-                        $detailsToAddToStash = $detailsToAddToStash.replace("'","''")
                         $detailsToAddToStash = $detailsToAddToStash.replace("\","\\")
                         $detailsToAddToStash = $detailsToAddToStash.replace('"','\"')
                         $detailsToAddToStash = $detailsToAddToStash.replace('“','\"') #literally removing the curly quote entirely
@@ -1288,8 +1287,9 @@ function Add-MetadataUsingOFDB{
                 $pathToAvatarImage = split-path -parent $pathToAvatarImage
                 $pathToAvatarImage = "$pathToAvatarImage"+"$directorydelimiter"+"Profile"
 
-                #If there's a profile folder to look into, let's do it
-                if((test-path $pathToAvatarImage)){
+                
+                #If there's a profile folder to look into, let's do it (unless the flag to just randomize the profile picture is there)
+                if(!($randomavatar) -and (test-path $pathToAvatarImage)){
                     $avatarfolder = "$pathToAvatarImage"+"$directorydelimiter"+"Avatars"
                     $profileimagesfolder = "$pathToAvatarImage"+"$directorydelimiter"+"images"
 
@@ -1521,10 +1521,13 @@ else {
     write-output "* Metadata Match Mode:        $searchspecificity"
     write-output "* Stash URL:                  $StashGQL_URL`n"
     if($v){
-        write-host "Special Mode: Verbose Output"
+        write-host "Special Mode Enabled: Verbose Output"
     }
     if($ignorehistory){
-        write-host "Special Mode: Ignore History File"
+        write-host "Special Mode Enabled: Ignore History File"
+    }
+    if($randomavatar){
+        write-host "Special Mode Enabled: Random Avatar "
     }
     write-output "----------------------------------------------------`n"
     write-output "What would you like to do?"
