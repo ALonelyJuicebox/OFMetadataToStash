@@ -10,17 +10,26 @@
 
 
 ## 🍦 How it Works
-- This script primarily relies on the SQLIte files (`user_data.db`) an OnlyFans scraper generates containing all the metadata you might want.
+- This script primarily relies on the SQLIte files (`user_data.db`) that a OnlyFans scraper generates. These files contain all the metadata you might want!
 - This script does **not** access/scrape/download/or otherwise pull down metadata from OnlyFans or any other service.
 - That said, if you don't have metadata DB files, this script _can_ try and make a good guess as your performers and associated content based on file path
+
 
 ## 💻 Requirements
 - Stash v0.24.3 ([Released 2024-1-14](https://github.com/stashapp/stash/releases/))
 - Any major operating system (Windows/macOS/Linux) running [Microsoft Powershell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3)
-- The [PSSQLite](https://github.com/RamblingCookieMonster/PSSQLite) and [PSGraphQL](https://www.powershellgallery.com/packages/PSGraphQL/1.6.0) PowerShell modules
 
 
 ## 📖 How to Run
 
 1. Ensure the latest version of [Microsoft Powershell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3) is installed. 
-5. Open a Powershell prompt in the same directory as the script and run the command `.\OFMetadataToStash.ps1` to start the short configuration wizard
+2. Open a Powershell prompt in the same directory as the script and run the command `.\OFMetadataToStash.ps1` to start its short configuration wizard
+<p align="center"><img src="readme_assets/ConfigWizard.png" ></p>
+
+## 🚩 Command Line Flags
+- `-ignorehistory` Script won't skip over metadata databases have already been imported to your Stash.
+- `-randomavatar` Script will ignore the use of the profile image that a particular performer selected for themselves.
+- `-v` Script will be more verbose with its output while running. Useful for troubleshooting.
+
+## 📌 Additional Notes
+- This script makes use of the excellent [PSSQLite](https://github.com/RamblingCookieMonster/PSSQLite) and [PSGraphQL](https://www.powershellgallery.com/packages/PSGraphQL/1.6.0) PowerShell modules. Kudos to those developers!
