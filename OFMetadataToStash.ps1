@@ -907,14 +907,35 @@ function Add-MetadataUsingOFDB{
                     
                     #If our search for matching media in Stash itself comes up empty, let's check to see if the file even exists on the file system 
                     if ($StashGQL_Result.data.querySQL.rows.length -eq 0 ){
-                        if (Test-Path $OFDBFullFilePath){
-                            write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                        }
-                        #In this case, the media isn't in Stash or on the filesystem so inform the user, log the file, and move on
-                        else{
-                            write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem.`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file.`n`n - $OFDBFullFilePath`n" -ForegroundColor Cyan
-                            Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
-                            $nummissingfiles++
+
+                        #Let's be extra about this error message. If there's no match, swap the directory path delimeters and try again.
+                        if (!(Test-Path $OFDBFullFilePath)){
+                            if ($OFDBFullFilePath.Contains('/')){
+                                $OFDBFullFilePath = $OFDBFullFilePath.Replace("/","\")
+                            }
+                            else{
+                                $OFDBFullFilePath = $OFDBFullFilePath.Replace("\","/")
+                            }
+                            if (!(Test-Path $OFDBFullFilePath)){
+                                write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database.`nThis file also doesn't appear to be on your filesystem (we checked with both Windows and *nix path delimeters).`nTry rerunning the script you used to scrape this OnlyFans performer and redownloading the file." -ForegroundColor Cyan
+                                write-host "- Scan Specificity Mode: $SearchSpecificity"
+                                write-host "- Filename: $OFDBfilename"
+                                write-host "- Directory: $OFDBdirectory"
+                                write-host "- Filesize: $OFDBfilesize"
+                                write-host "^ (Filename, Directory and Filesize are as defined by the OF Metadata Database) ^"
+                                Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
+                                $nummissingfiles++
+
+                            }
+                            else{
+                                write-host "`nInfo: There's a file in this OnlyFans metadata database that we couldn't find in your Stash database but the file IS on your filesystem.`nTry running a Scan Task in Stash then re-running this script." -ForegroundColor Cyan
+                                write-host "- Filename: $OFDBfilename"
+                                write-host "- Directory: $OFDBdirectory"
+                                write-host "- Filesize: $OFDBfilesize"
+                                write-host "^ (Filename, Directory and Filesize are as defined by the OF Metadata Database) ^"
+                                Add-Content -Path $PathToMissingFilesLog -value " $OFDBFullFilePath"
+                                $nummissingfiles++
+                            }
                         }
                     }
                     #Otherwise we have found a match! let's process the matching result and add the metadata we've found
@@ -989,8 +1010,6 @@ function Add-MetadataUsingOFDB{
                         $proposedtitle = $proposedtitle.replace('”','\"') #literally removing the curly quote entirely
     
                         #Let's check to see if this is a file that already has metadata.
-                        #For Videos, we check the title and the details
-                        #For Images, we only check title (for now)
                         #If any metadata is missing, we don't bother with updating a specific column, we just update the entire row
                         if ($mediatype -eq "video"){
                             #By default we will claim this file to be unmodified (we use this for user stats at the end of the script)
@@ -1314,7 +1333,7 @@ function Add-MetadataUsingOFDB{
                     }
                 }
                 
-                #If we didn't find anything on the filesystem, let's just query Stash and use a random image from this performer's OF page
+                #If we didn't find anything on the filesystem, let's just query Stash and use a random image from this performer's associated images
                 else{
                     $performerimageURL_GQLQuery = 'query FindImages(
                         $filter: FindFilterType
