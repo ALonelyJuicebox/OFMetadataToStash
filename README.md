@@ -24,12 +24,12 @@
 
 1. Ensure the latest version of [Microsoft Powershell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.3) is installed. 
 2. Open a Powershell prompt in the same directory as the script and run the command `.\OFMetadataToStash.ps1` to start its short configuration wizard
-<p align="center"><img src="/readme_assets/configwizard.png" ></p>
+<p align="center"><img src="readme_assets/ConfigWizard.png" ></p>
 
 ## 🚩 Command Line Flags
 - `-ignorehistory` Script won't skip over metadata databases have already been imported to your Stash.
 - `-randomavatar` Script will ignore the use of the profile image that a particular performer selected for themselves.
-- `-v` Script will be more verbose with its output while running. Can be useful for troubleshooting.
+- `-v` Script will be more verbose with its output while running. Useful for troubleshooting.
 
 ## 📌 Additional Notes
 - This script makes use of the excellent [PSSQLite](https://github.com/RamblingCookieMonster/PSSQLite) and [PSGraphQL](https://www.powershellgallery.com/packages/PSGraphQL/1.6.0) PowerShell modules. Kudos to those developers!
