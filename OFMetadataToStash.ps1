@@ -31,7 +31,6 @@ Import-Module PSSQLite
 
 
 ### Functions
-
 #Set-Config is a wizard that walks the user through the configuration settings
 function Set-Config{
     clear-host
@@ -194,6 +193,8 @@ function Set-Config{
     }
 
     try{ 
+        Add-Content -path $PathToConfigFile -value "#### OFMetadataToStash Config File v1 ####"
+        Add-Content -path $PathToConfigFile -value "------------------------------------------"
         Add-Content -path $PathToConfigFile -value "## URL to the Stash GraphQL API endpoint ##"
         Add-Content -path $PathToConfigFile -value $StashGQL_URL
         Add-Content -path $PathToConfigFile -value "## Direct Path to OnlyFans Metadata Database or top level folder containing OnlyFans content ##"
@@ -211,90 +212,92 @@ function Set-Config{
     
 } #End Set-Config
 
-#Get-PerformerHistory does a check to see if a particular metadata database file actually needs to be parsed based on a history file. Increments history file and returns true if it does, returns false if it does not.
-function Get-PerformerHistory{
-    #Location for the history file to be stored
-    $PathToHistoryFile = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"imported_dbs.sqlite"
+#DatabaseHasBeenImported does a check to see if a particular metadata database file actually needs to be parsed based on a history file. Returns true if this database needs to be parsed
+function DatabaseHasAlreadyBeenImported{
+    if ($ignorehistory -eq $true){
+        return $false
+    }
+    else{
+        #Location for the history file to be stored
+        $PathToHistoryFile = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"imported_dbs.sqlite"
 
-    #Let's go ahead and create the history file if it does not exist
-    if(!(test-path $pathtohistoryfile)){
+        #Let's go ahead and create the history file if it does not exist
+        if(!(test-path $pathtohistoryfile)){
+            try{
+                new-item $PathToHistoryFile
+            }
+            catch{
+                write-host "Error 1h - Unable to write the history file to the filesystem. Permissions issue?" -ForegroundColor red
+                read-host "Press [Enter] to exit"
+                exit
+            }
+
+            #Query for defining the schema of the SQL database we're creating
+            $historyquery = 'CREATE TABLE "history" ("historyID" INTEGER NOT NULL UNIQUE,"performer"	TEXT NOT NULL UNIQUE COLLATE BINARY,"import_date" TEXT NOT NULL,PRIMARY KEY("historyID" AUTOINCREMENT));'
+
+            try{
+                Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
+            }
+            catch{
+                write-host "Error 2h - Unable to create a history file using SQL." -ForegroundColor red
+                read-host "Press [Enter] to exit"
+                exit
+            }
+        }
+
+        #First let's check to see if this performer is even in the history file
         try{
-            new-item $PathToHistoryFile
+            $historyQuery = 'SELECT * FROM history WHERE history.performer = "'+$performername+'"'
+            $performerFromHistory = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
         }
         catch{
-            write-host "Error 1h - Unable to write the history file to the filesystem. Permissions issue?" -ForegroundColor red
+            write-host "Error 3h - Something went wrong while trying to read from history file ($PathToHistoryFile)" -ForegroundColor red
             read-host "Press [Enter] to exit"
             exit
         }
 
-        #Query for defining the schema of the SQL database we're creating
-        $historyquery = 'CREATE TABLE "history" ("historyID" INTEGER NOT NULL UNIQUE,"performer"	TEXT NOT NULL UNIQUE COLLATE BINARY,"import_date" TEXT NOT NULL,PRIMARY KEY("historyID" AUTOINCREMENT));'
+        #If this performer DOES exist in the history file...
+        if ($performerFromHistory){
 
-        try{
-            Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
+            #Let's get the timestamp from the metdata database file
+            $metadataLastWriteTime = get-item $currentdatabase
+            $metadataLastWriteTime = $metadataLastWriteTime.LastWriteTime
+
+            #If the metdata database for this performer has been modified since the last time we read this metadata database in, let's go ahead and parse it
+            if([datetime]$metadataLastWriteTime -gt [datetime]$performerFromHistory.import_date){
+                $currenttimestamp = get-date -format o
+                try { 
+                    $historyQuery = 'UPDATE import_date SET import_date = "'+$currenttimestamp+'" WHERE history.performer = "'+$performername+'"'
+                    Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
+                }
+                catch{
+                    write-host "Error 4h - Something went wrong while trying to update the history file ($PathToHistoryFile)" -ForegroundColor red
+                    read-output "Press [Enter] to exit"
+                    exit
+                }
+                return $false
+            }
+            else{
+                write-host "- The metadata database for $performername hasn't changed since your last import! Skipping..."
+                return $true
+            }
         }
-        catch{
-            write-host "Error 2h - Unable to create a history file using SQL." -ForegroundColor red
-            read-host "Press [Enter] to exit"
-            exit
-        }
-    }
-
-    #First let's check to see if this performer is even in the history file
-    try{
-        $historyQuery = 'SELECT * FROM history WHERE history.performer = "'+$performername+'"'
-        $performerFromHistory = Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile
-    }
-    catch{
-        write-host "Error 3h - Something went wrong while trying to read from history file ($PathToHistoryFile)" -ForegroundColor red
-        read-host "Press [Enter] to exit"
-        exit
-    }
-
-    #If this performer DOES exist in the history file...
-    if ($performerFromHistory){
-
-        #Let's get the timestamp from the metdata database file
-        $metadataLastWriteTime = get-item $currentdatabase
-        $metadataLastWriteTime = $metadataLastWriteTime.LastWriteTime
-
-        #If the metdata database for this performer has been modified since the last time we read this metadata database in, let's go ahead and parse it, otherwise return false so we can skip it
-        if([datetime]$metadataLastWriteTime -gt [datetime]$performerFromHistory.import_date){
+        #Otherwise, this performer is entirely new to us, so let's add the performer to the history file 
+        else{
             $currenttimestamp = get-date -format o
             try { 
-                $historyQuery = 'UPDATE import_date SET import_date = "'+$currenttimestamp+'" WHERE history.performer = "'+$performername+'"'
+                $historyQuery = 'INSERT INTO history(performer, import_date) VALUES ("'+$performername+'", "'+$currenttimestamp+'")'
                 Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
             }
             catch{
-                write-host "Error 4h - Something went wrong while trying to update the history file ($PathToHistoryFile)" -ForegroundColor red
+                write-host "Error 5h - Something went wrong while trying to add this performer to the history file ($PathToHistoryFile)" -ForegroundColor red
                 read-output "Press [Enter] to exit"
                 exit
             }
-            return $true
-        }
-        else{
-            write-host "Nothing to update for this performer! Skipping..."
             return $false
         }
     }
-    #Otherwise, this performer is entirely new to us, so let's add the performer to the history file and return true so it may be processed
-    else{
-        $currenttimestamp = get-date -format o
-        try { 
-            $historyQuery = 'INSERT INTO history(performer, import_date) VALUES ("'+$performername+'", "'+$currenttimestamp+'")'
-            Invoke-SqliteQuery -Query $historyQuery -DataSource $PathToHistoryFile    
-        }
-        catch{
-            write-host "Error 5h - Something went wrong while trying to add this performer to the history file ($PathToHistoryFile)" -ForegroundColor red
-            read-output "Press [Enter] to exit"
-            exit
-        }
-        return $true
-    }
-
-
-
-} #End Get-PerformerHistory
+} #End DatabaseHasBeenImported
 
 #Add-MetadataUsingOFDB adds metadata to Stash using metadata databases.
 function Add-MetadataUsingOFDB{
@@ -379,7 +382,7 @@ function Add-MetadataUsingOFDB{
         }
         #Logic for handling the process for selecting a single performer
         elseif([int]$selectednumberforprocess -eq 2){
-
+            write-host " " #Just adding a new line for a better UX
             #logic for displaying all found performers for user to select
             $i=1 # just used cosmetically
             Foreach ($OFDBdatabase in $OFDatabaseFilesCollection){
@@ -772,9 +775,10 @@ function Add-MetadataUsingOFDB{
                 $boolGetPerformerImage = $false
             }
 
-            #Let's check to see if we need to import this performer based on the history file. If this function returns false, move on to the next performer. 
+            #Let's check to see if we need to import this performer based on the history file using the DatabaseHasBeenImported function
             #The ignorehistory variable is a command line flag that the user may set if they want to have the script ignore the use of the history file
-            if (Get-PerformerHistory -or ($ignorehistory -eq $true)){
+             
+            if (!(DatabaseHasAlreadyBeenImported)){
                 #Select all the media (except audio) and the text the performer associated to them, if available from the OFDB
                 $Query = "SELECT messages.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN messages ON messages.post_id=medias.post_id UNION SELECT posts.text, medias.directory, medias.filename, medias.size, medias.created_at, medias.post_id, medias.media_type FROM medias INNER JOIN posts ON posts.post_id=medias.post_id WHERE medias.media_type <> 'Audios'"
                 $OF_DBpath = $currentdatabase.fullname 
@@ -1443,12 +1447,16 @@ $pathtoconfigfile = "."+$directorydelimiter+"OFMetadataToStash_Config"
 if (!(Test-path $PathToConfigFile)){
     Set-Config
 }
+$ConfigFileVersion = (Get-Content $pathtoconfigfile)[0]
+if ($ConfigFileVersion -ne "#### OFMetadataToStash Config File v1 ####"){
+    Set-Config
+}
 
 ## Global Variables ##
-$StashGQL_URL = (Get-Content $pathtoconfigfile)[1]
-$PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[3]
-$SearchSpecificity = (Get-Content $pathtoconfigfile)[5]
-$StashAPIKey = (Get-Content $pathtoconfigfile)[7]
+$StashGQL_URL = (Get-Content $pathtoconfigfile)[3]
+$PathToOnlyFansContent = (Get-Content $pathtoconfigfile)[5]
+$SearchSpecificity = (Get-Content $pathtoconfigfile)[7]
+$StashAPIKey = (Get-Content $pathtoconfigfile)[9]
 
 $PathToMissingFilesLog = "."+$directorydelimiter+"OFMetadataToStash_MissingFiles.txt"
 $pathToSanitizerScript = "."+$directorydelimiter+"Utilities"+$directorydelimiter+"OFMetadataDatabase_Sanitizer.ps1"
